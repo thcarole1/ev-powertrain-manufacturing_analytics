@@ -10,7 +10,7 @@ Second projet de portfolio, complémentaire au projet [Electric Mobility Platfor
 
 ```mermaid
 flowchart LR
-    A[Capteurs IoT simulés] --> B[Amazon MSK]
+    A[Simulateur Python - test électrique final] --> B[Amazon MSK]
     B --> C[Traitement Spark / EMR]
     C --> D[S3 - Data Lake]
     D --> E[Glue Catalog]
@@ -24,6 +24,7 @@ flowchart LR
 
 | Domaine | Technologie |
 |---|---|
+| Simulation de données | Python (numpy) |
 | Ingestion streaming | Amazon MSK (Kafka managé) |
 | Traitement | Spark (Glue puis EMR) |
 | Stockage | S3 |
@@ -36,16 +37,27 @@ flowchart LR
 
 | Élément | Nombre |
 |---|---|
-| Phases terminées | 0 / à définir |
-| ADR | 1 |
-| Tests | 0 |
+| Phases terminées | 1 / 7 (Phase 0 — cadrage) |
+| ADR | 2 |
+| Tests | 6 |
+
+## Simulateur de données (Phase 1)
+
+Génère des unités PMSM testées en fin de ligne d'assemblage — test électrique final de 30 secondes, avec une proportion configurable d'unités présentant un défaut d'assemblage (dégradation de roulement, déséquilibre de phase). Détail complet dans [ADR-002](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.md).
+
+```bash
+pip install -r requirements.txt
+python -m pytest tests/ -v
+python -m simulator.generator --num-units 100 --output-dir data/output --seed 42
+```
 
 ## Décisions d'architecture
 
 Les décisions techniques significatives sont documentées dans [`docs/adr/`](docs/adr/), au format Contexte / Décision / Pourquoi / Conséquences.
 
 - [ADR-001 — Utilisation du compte AWS existant, séparation par tags](docs/adr/0001-utilisation-compte-aws-existant.md)
+- [ADR-002 — Simulation des capteurs IoT pour le test électrique final](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.md)
 
 ## Démarrage
 
-*Section à compléter une fois l'infrastructure initiale en place (prérequis, déploiement, tests).*
+*Section à compléter une fois l'infrastructure Kafka/Spark en place.*
