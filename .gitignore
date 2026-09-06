@@ -8,3 +8,5 @@ __pycache__/
 .terraform.lock.hcl
 *.pem
 credentials*
+data/output/
+*:Zone.Identifier
