@@ -1,2 +1,4 @@
 numpy>=1.26
 pytest>=8.0
+kafka-python>=2.0
+pyspark==3.5.6

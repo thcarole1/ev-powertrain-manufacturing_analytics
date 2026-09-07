@@ -9,6 +9,6 @@ class SimulationConfig:
     temperature_hz: float = 1.0
     torque_hz: float = 10.0
     vibration_hz: float = 100.0
-    current_hz: float = 100.0
+    current_hz: float = 1000.0
     defect_rate: float = 0.25
     random_seed: int = 42
