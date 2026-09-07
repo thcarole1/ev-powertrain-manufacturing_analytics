@@ -96,7 +96,18 @@ def main():
     parser = argparse.ArgumentParser(description="Simulateur de test électrique final pour moteurs PMSM")
     parser.add_argument("--num-units", type=int, default=100)
     parser.add_argument("--output-dir", type=str, default="data/output")
-    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help=(
+            "Graine du générateur aléatoire. Contrôle TOUTE la séquence : "
+            "quelles unités sont défectueuses, quel défaut, et toutes les valeurs "
+            "de capteurs. Réutiliser le même seed régénère exactement le même jeu "
+            "de données. Omettre ce paramètre (défaut) tire une graine aléatoire "
+            "différente à chaque exécution."
+        ),
+    )
     args = parser.parse_args()
 
     config = SimulationConfig()
