@@ -83,3 +83,33 @@ def test_healthy_unit_manifest_has_no_defect_type():
             assert manifest_entry["defect_type"] == "none"
             found_healthy = True
     assert found_healthy
+
+
+def test_vibration_amplitude_is_not_collapsed_by_sampling_alignment():
+    """Non-régression : à 50 Hz sur 100 Hz d'échantillonnage sans déphasage,
+    chaque échantillon tombait exactement sur un passage à zéro du signal,
+    effondrant l'amplitude mesurée à un niveau de pur bruit quelle que soit
+    l'amplitude réelle configurée. Vérifie que ce n'est plus le cas.
+    """
+    config = SimulationConfig()
+    rng = np.random.default_rng(123)
+    _, vibration_normal = mp.generate_vibration(
+        rng, config.test_duration_s, config.vibration_hz, defective_bearing=False
+    )
+    measured_amplitude = np.max(np.abs(vibration_normal))
+    assert measured_amplitude > 0.5  # amplitude réelle configurée : 0.8
+
+
+def test_current_phase_a_amplitude_is_not_collapsed_by_sampling_alignment():
+    """Non-régression : la phase A (sans déphasage) tombait systématiquement
+    sur les passages à zéro à 100 Hz pour un signal à 50 Hz, effondrant son
+    amplitude mesurée à ~0.3 A au lieu de ~10 A — cassant le ratio de
+    déséquilibre pour toutes les unités, saines comme défectueuses.
+    """
+    config = SimulationConfig()
+    rng = np.random.default_rng(456)
+    _, phases_normal = mp.generate_current_phases(
+        rng, config.test_duration_s, config.current_hz, defective_phase=False
+    )
+    measured_amplitude_a = np.max(np.abs(phases_normal["A"]))
+    assert measured_amplitude_a > 8.0  # amplitude réelle configurée : 10.0
