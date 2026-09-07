@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 
 from simulator.config import SimulationConfig
-from simulator.generator import generate_unit
+from simulator.generator import generate_unit, new_unit_id
 from simulator.kafka_producer import build_producer, stream_unit_records
 from simulator.writer import JsonlWriter
 
@@ -39,7 +39,7 @@ def main():
     manifest_writer = JsonlWriter(manifest_path)
 
     for i in range(args.num_units):
-        unit_id = f"unit_{i:05d}"
+        unit_id = new_unit_id()
         records, manifest_entry = generate_unit(unit_id, rng, config)
         stream_unit_records(producer, unit_id, records)
         manifest_writer.write(manifest_entry)
