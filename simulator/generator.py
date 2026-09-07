@@ -6,6 +6,7 @@ Sorties (ADR-002) :
 """
 
 import argparse
+import uuid
 from pathlib import Path
 
 import numpy as np
@@ -17,6 +18,17 @@ from .writer import JsonlWriter
 DEFECT_NONE = "none"
 DEFECT_BEARING = "bearing"
 DEFECT_PHASE = "phase_imbalance"
+
+
+def new_unit_id():
+    """Identifiant globalement unique, valable au-delà d'une seule exécution.
+
+    Un compteur remis à zéro à chaque lancement (unit_00000, unit_00001...)
+    entrerait en collision avec les unités des exécutions précédentes encore
+    présentes dans Kafka — celui-ci ne collisionne jamais, sans coordination
+    entre exécutions ni entre plusieurs stations de test en parallèle.
+    """
+    return f"unit_{uuid.uuid4().hex[:8]}"
 
 
 def assign_defect(rng, defect_rate):
@@ -81,7 +93,7 @@ def run(num_units, output_dir, config, seed=None):
     manifest_writer = JsonlWriter(output_dir / "units-manifest.jsonl")
 
     for i in range(num_units):
-        unit_id = f"unit_{i:05d}"
+        unit_id = new_unit_id()
         records, manifest_entry = generate_unit(unit_id, rng, config)
         for sensor_type, rows in records.items():
             writers[sensor_type].write_many(rows)
