@@ -80,7 +80,7 @@ def generate_unit(unit_id, rng, config):
 
 
 def run(num_units, output_dir, config, seed=None):
-    rng = np.random.default_rng(seed if seed is not None else config.random_seed)
+    rng = np.random.default_rng(seed)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
