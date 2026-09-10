@@ -6,25 +6,24 @@ Pipeline de données temps réel simulant une ligne de production de moteurs él
 
 Second projet de portfolio, complémentaire au projet [Electric Mobility Platform](LIEN_A_COMPLETER), axé sur des compétences non démontrées jusqu'ici : Kafka, Spark, et potentiellement Kubernetes/LLM en option.
 
-**État actuel : pipeline batch et streaming tous deux validés en local (Kafka + Spark, sans AWS pour l'instant).** Le déploiement sur AWS MSK/Glue est la prochaine étape, pas encore réalisée.
+**État actuel : pipeline batch et streaming (1 capteur et 3 capteurs) tous validés en local (Kafka + Spark, sans AWS pour l'instant).** Le déploiement sur AWS MSK/Glue est la prochaine étape, pas encore réalisée.
 
 ## Résultats clés
 
-**Batch** — détection de deux défauts d'assemblage (roulement mal monté, déséquilibre de phase électrique) sur des unités simulées passant un test électrique de fin de ligne — **précision et rappel de 1.00 sur 50 unités testées**, évalués contre un jeu de vérité terrain jamais exposé à la logique de détection.
+**Batch** — précision et rappel de 1.00 sur 50 unités testées.
 
 ![Résultats de détection](docs/images/detection_results.png)
 
-**Streaming** — même détection (défaut de roulement, via la vibration) exécutée en continu sur `spark.readStream`, avec finalisation automatique par `session_window` dès qu'une unité termine son test — validé sur 10 unités simulées en parallèle, à rythme réaliste (une nouvelle unité toutes les 5-10 secondes). Détail complet des décisions et incidents dans [ADR-003](docs/adr/0003-detection-streaming-session-window-watermark.md).
+**Streaming, 3 capteurs, validé à grande échelle** — détection combinée (roulement via vibration, déséquilibre de phase via courant) sur 50 unités simulées en parallèle à rythme réaliste : **14/14 unités défectueuses détectées, 0 faux positif** sur les 36 unités saines. Architecture découplée (trois flux streaming indépendants + jointure batch séparée) après l'abandon d'une jointure stream-stream native, qui se bloquait de façon non résolue — détail complet et incidents dans [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md).
 
-## Pipeline validé (local)
+## Pipeline streaming (3 capteurs, architecture découplée)
 
 ```mermaid
 flowchart TD
-    A["Simulateur Python"] -->|"JSON, clé unit_id"| B["Kafka local<br/>4 topics"]
-    B --> C["Driver Spark<br/>construit le plan"]
-    C -->|"à l'action ou en continu"| D["Executors<br/>lisent Kafka, calculent"]
-    D --> E["Détection par seuils"]
-    E --> F["Comparaison au manifeste<br/>de vérité terrain"]
+    A["Kafka — 3 topics"] --> B["3 requêtes streaming<br/>indépendantes (session window)"]
+    B --> C["3 fichiers JSON Lines<br/>résultats finalisés"]
+    C --> D["Job batch : déduplication<br/>puis jointure sur unit_id"]
+    D --> E["Classification combinée"]
 ```
 
 ## Architecture cible (AWS, à déployer)
@@ -46,8 +45,9 @@ flowchart LR
 | Simulation de données | Python (numpy) | Fait |
 | Ingestion streaming | Kafka (local, KRaft) → Amazon MSK | Local fait, AWS à faire |
 | Traitement batch | PySpark (`spark.read`) | Fait |
-| Traitement streaming | PySpark (`spark.readStream`, session window) | Fait pour la vibration, courant/température à faire |
-| Détection d'anomalie | Seuils calibrés, PySpark | Fait (batch et streaming partiel) |
+| Traitement streaming (1 capteur) | PySpark (`spark.readStream`, session window) | Fait |
+| Traitement streaming (3 capteurs) | Architecture découplée (3 flux + jointure batch) | Fait, validé à 50 unités |
+| Détection d'anomalie | Seuils calibrés, PySpark | Fait |
 | Stockage | — | À faire |
 | Requêtage | — | À faire |
 | Restitution | — | À faire |
@@ -58,9 +58,9 @@ flowchart LR
 
 | Élément | Nombre |
 |---|---|
-| Phases terminées | Cadrage Phase 0 + validation locale Kafka/Spark (batch et streaming) |
-| ADR | 3 |
-| Tests | 21 |
+| Phases terminées | Cadrage Phase 0 + validation locale Kafka/Spark (batch, streaming 1 et 3 capteurs) |
+| ADR | 4 |
+| Tests | 30 |
 
 ## Utilisation locale
 
@@ -80,7 +80,7 @@ python stream_to_kafka.py --num-units 50
 python detect_anomalies_batch.py
 ```
 
-**Streaming** (deux terminaux) :
+**Streaming, 1 capteur** (deux terminaux) :
 ```bash
 python detect_anomalies_streaming.py
 ```
@@ -88,15 +88,27 @@ python detect_anomalies_streaming.py
 python stream_to_kafka_realtime.py --num-units 10
 ```
 
-Détail complet des deux approches et des incidents rencontrés dans [ADR-002](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.md) (simulateur, aliasing) et [ADR-003](docs/adr/0003-detection-streaming-session-window-watermark.md) (streaming, session window, watermark).
+**Streaming, 3 capteurs** (deux terminaux, puis jointure séparée) :
+```bash
+python stream_sensors_to_files.py
+```
+```bash
+python stream_to_kafka_realtime.py --num-units 50
+```
+Une fois les unités finalisées (`Ctrl+C` sur le premier terminal) :
+```bash
+python detect_anomalies_from_streaming_files.py
+```
+
+Détail complet des approches et incidents rencontrés : [ADR-002](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.md) (simulateur, aliasing), [ADR-003](docs/adr/0003-detection-streaming-session-window-watermark.md) (streaming 1 capteur), [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md) (streaming 3 capteurs, architecture découplée).
 
 ## Décisions d'architecture
 
 - [ADR-001 — Utilisation du compte AWS existant, séparation par tags](docs/adr/0001-utilisation-compte-aws-existant.md)
 - [ADR-002 — Simulation des capteurs IoT pour le test électrique final](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.md)
 - [ADR-003 — Détection en streaming (session window, watermark, résilience)](docs/adr/0003-detection-streaming-session-window-watermark.md)
+- [ADR-004 — Architecture découplée pour la détection streaming à 3 capteurs](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md)
 
 ## Prochaines étapes
 
-- Étendre la détection streaming aux trois capteurs (jointure stream-stream vibration/température/courant, avec ses propres contraintes de watermark)
 - Décision à trancher : déploiement AWS (MSK Serverless envisagé) vs poursuite en local

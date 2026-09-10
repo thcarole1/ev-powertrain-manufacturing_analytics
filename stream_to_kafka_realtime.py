@@ -69,8 +69,16 @@ def main():
         producer.send(topic, key="flush", value=payload)
     print("Message de purge envoyé (débloque les dernières sessions ouvertes).")
 
-    producer.flush()
-    producer.close()
+    # flush()/close() bornés dans le temps — un flush sans limite peut
+    # rester bloqué indéfiniment sur un gros volume (~1,9M messages à 50
+    # unités), observé concrètement lors d'un run resté figé plus de 16
+    # minutes sans qu'aucune nouvelle donnée n'arrive dans Kafka. Mieux
+    # vaut échouer proprement avec un avertissement que de bloquer sans fin.
+    try:
+        producer.flush(timeout=60)
+    except Exception as exc:
+        print(f"ATTENTION : flush() n'a pas terminé dans le délai imparti ({exc}). Des messages ont pu ne pas être confirmés.")
+    producer.close(timeout=30)
     manifest_writer.close()
     print(f"{args.num_units} unités envoyées en temps réel. Manifeste : {args.manifest_path}")
 

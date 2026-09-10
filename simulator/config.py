@@ -23,11 +23,18 @@ class StreamingDemoConfig(SimulationConfig):
     courant) créaient un volume de messages trop élevé pour tenir dans le
     rythme réel prévu : des trous de silence supérieurs au gap de session
     (8s) fragmentaient artificiellement une même unité en plusieurs
-    sessions distinctes. Ces fréquences restent largement suffisantes pour
-    la détection (5 échantillons/cycle minimum, bien au-dessus du cas
-    limite de Nyquist déjà corrigé) — seule la fidélité du signal brut est
-    réduite, pas la capacité de détection.
+    sessions distinctes.
+
+    vibration_hz=50 donne 5 échantillons/cycle (base_freq_hz=10 dans
+    motor_profiles.py) — suffisant, confirmé en conditions réelles.
+
+    current_hz=400 donne 8 échantillons/cycle (supply_freq_hz=50) — corrigé
+    après un premier choix erroné de 50 Hz, qui égalait exactement la
+    fréquence du signal (1 échantillon/cycle, pire que le cas limite de
+    Nyquist déjà rencontré sur la vibration). Ce choix n'avait pas été
+    vérifié contre le critère de Nyquist au moment de réduire le volume de
+    messages, seul le volume total avait été contrôlé.
     """
 
     vibration_hz: float = 50.0
-    current_hz: float = 50.0
+    current_hz: float = 400.0
