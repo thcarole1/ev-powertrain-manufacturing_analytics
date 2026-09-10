@@ -20,23 +20,23 @@ Second projet de portfolio, complémentaire au projet [Electric Mobility Platfor
 
 ```mermaid
 flowchart TD
-    A[Simulateur Python] -->|JSON, clé unit_id| B[Kafka local — 4 topics]
-    B --> C[Driver Spark — construit le plan]
-    C -->|à l'action ou en continu| D[Executors — lisent Kafka, calculent]
-    D --> E[Détection par seuils]
-    E --> F[Comparaison au manifeste de vérité terrain]
+    A["Simulateur Python"] -->|"JSON, clé unit_id"| B["Kafka local<br/>4 topics"]
+    B --> C["Driver Spark<br/>construit le plan"]
+    C -->|"à l'action ou en continu"| D["Executors<br/>lisent Kafka, calculent"]
+    D --> E["Détection par seuils"]
+    E --> F["Comparaison au manifeste<br/>de vérité terrain"]
 ```
 
 ## Architecture cible (AWS, à déployer)
 
 ```mermaid
 flowchart LR
-    A[Simulateur Python] --> B[Amazon MSK]
-    B --> C[Traitement Spark / EMR ou Glue]
-    C --> D[S3 - Data Lake]
-    D --> E[Glue Catalog]
-    E --> F[Athena]
-    F --> G[Power BI]
+    A["Simulateur Python"] --> B["Amazon MSK"]
+    B --> C["Traitement Spark<br/>EMR ou Glue"]
+    C --> D["S3 - Data Lake"]
+    D --> E["Glue Catalog"]
+    E --> F["Athena"]
+    F --> G["Power BI"]
 ```
 
 ## Stack technique
