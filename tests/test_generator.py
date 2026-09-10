@@ -1,7 +1,7 @@
 import numpy as np
 
 from simulator import motor_profiles as mp
-from simulator.config import SimulationConfig
+from simulator.config import SimulationConfig, StreamingDemoConfig
 from simulator.generator import generate_unit
 
 
@@ -113,3 +113,22 @@ def test_current_phase_a_amplitude_is_not_collapsed_by_sampling_alignment():
     )
     measured_amplitude_a = np.max(np.abs(phases_normal["A"]))
     assert measured_amplitude_a > 8.0  # amplitude réelle configurée : 10.0
+
+
+def test_streaming_demo_current_amplitude_is_not_collapsed_on_any_phase():
+    """Non-régression sur un second incident : StreamingDemoConfig.current_hz
+    avait été fixé à 50 Hz, exactement égal à la fréquence du signal
+    (1 échantillon/cycle) — pire que le cas limite de Nyquist déjà corrigé
+    ci-dessus. Toutes les unités, saines comme défectueuses, affichaient un
+    ratio de déséquilibre faussement bas. Vérifie les trois phases, pas
+    seulement A (le déphasage aléatoire fait varier quelle phase s'effondre
+    d'une unité à l'autre).
+    """
+    config = StreamingDemoConfig()
+    rng = np.random.default_rng(789)
+    _, phases_normal = mp.generate_current_phases(
+        rng, config.test_duration_s, config.current_hz, defective_phase=False
+    )
+    for phase_name, values in phases_normal.items():
+        amplitude = np.max(np.abs(values))
+        assert amplitude > 8.0, f"phase {phase_name} : amplitude effondrée à {amplitude:.2f}"
