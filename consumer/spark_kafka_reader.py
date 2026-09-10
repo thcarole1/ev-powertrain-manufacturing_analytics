@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, from_json
+from pyspark.sql.functions import col, from_json, to_timestamp
 
 from consumer.schemas import SENSOR_SCHEMA
 
@@ -22,8 +22,8 @@ def build_spark_session(app_name="ev-powertrain-kafka-reader"):
 def read_sensor_stream(spark, topic, bootstrap_servers="localhost:9092", schema=SENSOR_SCHEMA):
     """Lit un topic Kafka en flux et parse la valeur JSON selon le schéma donné.
 
-    La clé Kafka (unit_id) est conservée séparément de la valeur parsée,
-    pour rester visible même si le schéma de la valeur évolue.
+    event_time est converti en timestamp exploitable pour un watermark —
+    il arrive en JSON comme une chaîne ISO 8601, pas un type Spark natif.
     """
     raw = (
         spark.readStream.format("kafka")
@@ -32,7 +32,8 @@ def read_sensor_stream(spark, topic, bootstrap_servers="localhost:9092", schema=
         .option("startingOffsets", "earliest")
         .load()
     )
-    return raw.select(
+    parsed = raw.select(
         col("key").cast("string").alias("kafka_key"),
         from_json(col("value").cast("string"), schema).alias("data"),
     ).select("kafka_key", "data.*")
+    return parsed.withColumn("event_time", to_timestamp(col("event_time")))

@@ -31,7 +31,7 @@ def main():
     args = parser.parse_args()
 
     config = SimulationConfig()
-    rng = np.random.default_rng(args.seed if args.seed is not None else config.random_seed)
+    rng = np.random.default_rng(args.seed)
     producer = build_producer(args.bootstrap_servers)
 
     manifest_path = Path(args.manifest_path)

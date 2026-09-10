@@ -21,12 +21,19 @@ def temperature_features(df):
 def current_features(df):
     """Ratio d'amplitude min/max entre les trois phases — détecte un déséquilibre.
 
+    Écrit sans pivot() : l'agrégation conditionnelle donne le même résultat
+    en batch comme en streaming, sans dépendre d'un support de pivot() en
+    streaming non garanti par la documentation officielle Spark.
+
     Proche de 1.0 : phases équilibrées. Proche de 0.65 (voir motor_profiles.py) :
     déséquilibre de phase caractéristique du défaut simulé.
     """
-    phase_amplitude = df.groupBy("unit_id", "phase").agg(F.max(F.abs("value")).alias("amplitude"))
-    pivoted = phase_amplitude.groupBy("unit_id").pivot("phase", ["A", "B", "C"]).agg(F.first("amplitude"))
-    return pivoted.withColumn(
+    grouped = df.groupBy("unit_id").agg(
+        F.max(F.when(F.col("phase") == "A", F.abs(F.col("value")))).alias("A"),
+        F.max(F.when(F.col("phase") == "B", F.abs(F.col("value")))).alias("B"),
+        F.max(F.when(F.col("phase") == "C", F.abs(F.col("value")))).alias("C"),
+    )
+    return grouped.withColumn(
         "current_imbalance_ratio",
         F.least("A", "B", "C") / F.greatest("A", "B", "C"),
     )
