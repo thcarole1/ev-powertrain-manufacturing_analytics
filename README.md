@@ -1,5 +1,7 @@
 # EV Powertrain Manufacturing Analytics
 
+🇫🇷 Français | [🇬🇧 English](README.en.md)
+
 ## En bref
 
 Pipeline de données temps réel simulant une ligne de production de moteurs électriques synchrones à aimants permanents (PMSM), de l'ingestion de capteurs IoT (température, vibration, courant, couple) jusqu'à la détection d'anomalies et la restitution métier.
