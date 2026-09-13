@@ -54,9 +54,9 @@ MSK Serverless gère lui-même la réplication et n'accepte pas de valeur explic
 Bout en bout, sur le cluster réel : création de 4 topics, diffusion de 5 unités simulées complètes (le vrai simulateur du projet, pas un message de test), relecture confirmant un total de 15 000 messages sur `sensor-vibration` (5 unités × 100 Hz × 30s — correspondance exacte), structure JSON correcte, signature de défaut de roulement visible sur l'unité marquée défectueuse dans le manifeste.
 
 **Test de connectivité** (produire, relire, confirmer) :
-![Test de connectivité MSK Serverless](images/msk-connectivity-test-proof.png)
+![Test de connectivité MSK Serverless](../images/msk-connectivity-test-proof.png)
 
 **Pipeline réel du projet, 5 unités, vérification du volume** :
-![Diffusion des 5 unités et vérification des 15 000 messages](images/msk-real-pipeline-proof.png)
+![Diffusion des 5 unités et vérification des 15 000 messages](../images/msk-real-pipeline-proof.png)
 
 Infrastructure détruite en fin de session (`terraform destroy`) pour éviter les coûts continus — à redéployer via `terraform apply` le moment venu, sans perte : le state distant (S3) et le code restent intacts.
