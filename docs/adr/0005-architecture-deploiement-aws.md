@@ -26,3 +26,37 @@ Le pipeline (simulateur, Kafka, détection Spark) est validé en local. Cet ADR 
 - Le VPC par défaut est partagé avec toute autre charge présente sur ce compte AWS — cohérent avec le choix déjà fait de ne pas isoler ce projet par un compte dédié (ADR-001), mais signifie que les groupes de sécurité doivent être explicitement scopés à ce projet pour éviter toute interférence.
 - Le bastion EC2 est une ressource facturée en continu si elle n'est pas arrêtée ou détruite entre les sessions — à intégrer à la checklist de fin de session, au même titre que MSK.
 - Toute future migration vers un VPC dédié (si l'isolation devenait nécessaire) impliquerait de revoir cet ADR et de recréer les ressources réseau-dépendantes.
+
+## Incidents
+
+### Sous-réseaux dans la même zone de disponibilité
+
+`data.aws_subnets` retournait tous les sous-réseaux du VPC par défaut, dont certains partagent la même AZ — MSK Serverless refuse explicitement ce cas (`BadRequestException`). Corrigé en sélectionnant précisément un sous-réseau par AZ via `data.aws_subnet` avec `default_for_az = true`, itéré sur `data.aws_availability_zones`.
+
+### Jeu de caractères restreint sur les descriptions de groupe de sécurité
+
+Les descriptions rédigées en français correct (accents, tiret cadratin) ont été rejetées par la validation AWS (`^[0-9A-Za-z_ .:/()#,@\[\]+=&;{}!$*-]*$`) — spécifique aux champs `description` d'`aws_security_group`, pas aux autres ressources. Corrigé en réécrivant ces descriptions sans caractères accentués.
+
+### Incompatibilité de version `kafka-python` avec l'authentification IAM
+
+`kafka-python` installé par défaut (`3.0.11`, via `pip install kafka-python`) a une architecture interne différente de celle attendue par `aws-msk-iam-sasl-signer-python`, provoquant un `ModuleNotFoundError` puis un `KafkaTimeoutError` au moment de la négociation SASL. Diagnostic confirmé par une recherche externe : `kafka-python` a introduit un changement cassant en version 2.1.0 sur la gestion SASL, documenté par la bibliothèque de signature IAM elle-même comme cassant leur approche OAUTHBEARER. Corrigé en épinglant `kafka-python==2.0.2` dans `aws/requirements.txt`, distinct du `requirements.txt` principal (Kafka local, sans authentification IAM, non concerné par cette contrainte).
+
+### Permission IAM manquante pour la lecture (`ReadData`)
+
+La policy IAM du bastion accordait `CreateTopic`, `DescribeTopic`, `WriteData`, mais pas `ReadData` — un oubli de conception, pas une erreur AWS. La création de topic et l'envoi de messages fonctionnaient, la lecture échouait avec `TopicAuthorizationFailedError`. Corrigé par l'ajout explicite de `kafka-cluster:ReadData` sur la ressource topic.
+
+### `replication_factor=-1` refusé par le client, alors que MSK Serverless l'impose
+
+MSK Serverless gère lui-même la réplication et n'accepte pas de valeur explicite côté client — mais `kafka-python==2.0.2` refuse `-1` (convention "laisser le serveur décider" dans d'autres écosystèmes Kafka) avec une erreur de validation locale, avant même d'atteindre le serveur. Contourné en envoyant `replication_factor=3` : une valeur positive quelconque satisfait la validation du client, sans effet réel côté serveur.
+
+## Preuve de fonctionnement
+
+Bout en bout, sur le cluster réel : création de 4 topics, diffusion de 5 unités simulées complètes (le vrai simulateur du projet, pas un message de test), relecture confirmant un total de 15 000 messages sur `sensor-vibration` (5 unités × 100 Hz × 30s — correspondance exacte), structure JSON correcte, signature de défaut de roulement visible sur l'unité marquée défectueuse dans le manifeste.
+
+**Test de connectivité** (produire, relire, confirmer) :
+![Test de connectivité MSK Serverless](images/msk-connectivity-test-proof.png)
+
+**Pipeline réel du projet, 5 unités, vérification du volume** :
+![Diffusion des 5 unités et vérification des 15 000 messages](images/msk-real-pipeline-proof.png)
+
+Infrastructure détruite en fin de session (`terraform destroy`) pour éviter les coûts continus — à redéployer via `terraform apply` le moment venu, sans perte : le state distant (S3) et le code restent intacts.
