@@ -41,6 +41,8 @@ flowchart TD
 
 Chaque capteur est traité par sa propre requête streaming (session window), indépendamment des deux autres. Les résultats sont ensuite consolidés par unité — avec résolution des doublons résiduels — avant le diagnostic final. Détail complet (pourquoi une jointure stream-stream native a été abandonnée au profit de cette architecture) dans [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md).
 
+**Pourquoi 3 capteurs ici, alors que le pipeline local utilise 4 topics ?** Les 4 topics Kafka correspondent aux 4 types de capteurs prévus dans le brief initial (température, vibration, courant, couple) — un topic par capteur, indépendamment de son usage réel en aval. Seuls 3 sont exploités par la détection : les deux scénarios de panne retenus (roulement, déséquilibre de phase) ne nécessitent pas le couple. Le topic `sensor-torque` existe, reçoit des données simulées, mais n'entre dans aucune logique de classification pour l'instant.
+
 ## Architecture cible (AWS, à déployer)
 
 ```mermaid
