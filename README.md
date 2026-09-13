@@ -18,15 +18,28 @@ Second projet de portfolio, complémentaire au projet [Electric Mobility Platfor
 
 **AWS, MSK Serverless — premier déploiement réel validé bout en bout** — VPC par défaut réutilisé, bastion EC2 sans clé SSH (accès SSM uniquement), IAM scopé au cluster. Le vrai simulateur du projet (pas un message de test) a produit 5 unités vers un cluster MSK Serverless réel ; relecture confirmée structurellement correcte (15 000 messages sur un topic, correspondance exacte au calcul attendu). Cinq incidents réels diagnostiqués et documentés. Détail complet, preuve et incidents dans [ADR-005](docs/adr/0005-architecture-deploiement-aws.md).
 
-## Pipeline streaming (3 capteurs, architecture découplée)
+## Pipeline validé (local)
 
 ```mermaid
 flowchart TD
-    A["Kafka — 3 topics"] --> B["3 requêtes streaming<br/>indépendantes (session window)"]
-    B --> C["3 fichiers JSON Lines<br/>résultats finalisés"]
-    C --> D["Job batch : déduplication<br/>puis jointure sur unit_id"]
-    D --> E["Classification combinée"]
+    A["Simulateur Python"] -->|"JSON, clé unit_id"| B["Kafka local<br/>4 topics"]
+    B --> C["Driver Spark<br/>construit le plan"]
+    C -->|"à l'action ou en continu"| D["Executors<br/>lisent Kafka, calculent"]
+    D --> E["Détection par seuils"]
+    E --> F["Comparaison au manifeste<br/>de vérité terrain"]
 ```
+
+## Pipeline de détection à 3 capteurs (architecture découplée)
+
+```mermaid
+flowchart TD
+    A["Vibration<br/>analyse indépendante<br/>résultat par unité"] --> D["Consolidation<br/>regroupement par unité,<br/>doublons résolus"]
+    B["Température<br/>analyse indépendante<br/>résultat par unité"] --> D
+    C["Courant<br/>analyse indépendante<br/>résultat par unité"] --> D
+    D --> E["Diagnostic<br/>unité saine ou défectueuse"]
+```
+
+Chaque capteur est traité par sa propre requête streaming (session window), indépendamment des deux autres. Les résultats sont ensuite consolidés par unité — avec résolution des doublons résiduels — avant le diagnostic final. Détail complet (pourquoi une jointure stream-stream native a été abandonnée au profit de cette architecture) dans [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md).
 
 ## Architecture cible (AWS, à déployer)
 
@@ -103,7 +116,7 @@ Une fois les unités finalisées (`Ctrl+C` sur le premier terminal) :
 python detect_anomalies_from_streaming_files.py
 ```
 
-Détail complet des approches et incidents rencontrés : [ADR-002](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.md) (simulateur, aliasing), [ADR-003](docs/adr/0003-detection-streaming-session-window-watermark.md) (streaming 1 capteur), [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md) (streaming 3 capteurs, architecture découplée).
+Détail complet des approches et incidents rencontrés dans [ADR-002](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.md) (simulateur, aliasing), [ADR-003](docs/adr/0003-detection-streaming-session-window-watermark.md) (streaming 1 capteur), [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md) (streaming 3 capteurs).
 
 ## Décisions d'architecture
 
