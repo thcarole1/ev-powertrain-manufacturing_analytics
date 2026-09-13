@@ -71,25 +71,6 @@ resource "aws_s3_bucket_public_access_block" "tfstate" {
   restrict_public_buckets = true
 }
 
-resource "aws_dynamodb_table" "tfstate_lock" {
-  name         = "ev-powertrain-analytics-tfstate-lock"
-  billing_mode = "PAY_PER_REQUEST" # pas de coût fixe : facturé à la requête, quasi nul ici
-  hash_key     = "LockID"
-
-  attribute {
-    name = "LockID"
-    type = "S"
-  }
-
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
 output "state_bucket_name" {
   value = aws_s3_bucket.tfstate.bucket
-}
-
-output "lock_table_name" {
-  value = aws_dynamodb_table.tfstate_lock.name
 }
