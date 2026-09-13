@@ -8,6 +8,27 @@ Second projet de portfolio, complémentaire au projet [Electric Mobility Platfor
 
 **État actuel : pipeline batch et streaming (1 capteur et 3 capteurs) validés en local. Premier déploiement AWS réel effectué et validé (MSK Serverless), puis détruit en fin de session pour maîtriser les coûts.** Glue/EMR, S3, Athena, Power BI restent à faire.
 
+## Comprendre ce projet en 2 minutes (sans jargon technique)
+
+Ce projet simule une chaîne de fabrication de moteurs électriques pour véhicules. Chaque moteur fabriqué passe un **test électrique de 30 secondes en fin d'assemblage**, pendant lequel plusieurs capteurs enregistrent son comportement. Le but : repérer automatiquement les moteurs mal assemblés, sans intervention humaine, au moment même où ils sortent de la chaîne.
+
+**Ce que chaque capteur surveille :**
+
+| Capteur | Ce qu'il révèle |
+|---|---|
+| Vibration | Un moteur qui vibre anormalement trahit souvent un roulement mal monté à l'assemblage |
+| Courant électrique | Un déséquilibre entre les trois phases électriques trahit souvent une connexion mal serrée |
+| Température | Mesurée pendant le test, mais pas encore utilisée dans la décision finale (les deux défauts recherchés se voient déjà sur les deux mesures ci-dessus) |
+| Couple moteur | Mesuré, mais pas encore exploité dans la détection actuelle |
+
+**Comment la décision "bon" ou "défectueux" est prise :** chaque mesure est comparée à un seuil au-delà duquel elle est jugée anormale. Si au moins une mesure dépasse son seuil, le moteur est marqué défectueux ; sinon, il est validé.
+
+**Qui prend cette décision, et quand :** pas un humain, et pas pendant que le test se déroule — c'est **Apache Spark**, le moteur de traitement de données au cœur de ce projet, qui analyse les mesures et rend son verdict quelques secondes après la fin du test.
+
+**Résultat obtenu** : sur 50 moteurs simulés testés, les 14 réellement défectueux ont tous été détectés, sans qu'aucun moteur sain ne soit signalé à tort.
+
+*Note honnête : les seuils actuels ont été calibrés sur les paramètres connus du simulateur. Avant un déploiement réel en production, ils devraient être recalibrés sur des données de test réelles.*
+
 ## Résultats clés
 
 **Batch** — précision et rappel de 1.00 sur 50 unités testées.
