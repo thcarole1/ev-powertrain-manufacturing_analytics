@@ -1,0 +1,9 @@
+# Dépendances pour les scripts s'exécutant sur le bastion EC2 (authentification
+# IAM MSK), distinctes de requirements.txt à la racine (Kafka local, PLAINTEXT).
+#
+# kafka-python doit rester <= 2.0.9 : la 2.1.0 a changé la gestion SASL et
+# casse l'approche OAUTHBEARER utilisée par aws-msk-iam-sasl-signer-python
+# (incident rencontré et documenté dans ADR-005).
+kafka-python==2.0.2
+aws-msk-iam-sasl-signer-python
+numpy>=1.26
