@@ -77,7 +77,7 @@ resource "aws_iam_role_policy" "emr_serverless_data_lake" {
     Statement = [{
       Sid    = "WriteResults"
       Effect = "Allow"
-      Action = ["s3:PutObject", "s3:GetObject", "s3:ListBucket"]
+      Action = ["s3:PutObject", "s3:GetObject", "s3:ListBucket", "s3:DeleteObject"]
       Resource = [
         data.terraform_remote_state.data_lake.outputs.data_lake_bucket_arn,
         "${data.terraform_remote_state.data_lake.outputs.data_lake_bucket_arn}/*",
