@@ -1,0 +1,32 @@
+=== Athena — requêtes réelles sur la table detection_results (module data lake persistant) ===
+
+Base : ev_powertrain_analytics
+Table : detection_results
+Groupe de travail : ev-powertrain-analytics
+
+--- Requête 1 ---
+SELECT * FROM detection_results LIMIT 10;
+
+#  unit_id        vibration_std       temperature_rise    current_imbalance_ratio  predicted_bearing_defect  predicted_phase_defect  predicted_defective
+1  unit_07722d34  0.5851432051596411  14.49928655657406   0.9881887903734895       false                     false                   false
+2  unit_0e17bff2  0.582301593104712   14.647761663263648  0.9866415737214396       false                     false                   false
+3  unit_0fcd7557  2.863251545470935   35.035634339359206  0.9856508682689692       true                      false                   true
+4  unit_252c1183  0.5888004324615548  14.307190877089198  0.9971781406032275       false                     false                   false
+5  unit_2680167b  0.5835120882085336  13.948509080929199  0.9738866257630827       false                     false                   false
+6  unit_2a594a5d  0.5843130827130933  14.12379876512037   0.9927482872476627       false                     false                   false
+7  unit_14b2c211  0.5827266896081653  14.480253796194855  0.9860064231455656       false                     false                   false
+8  unit_176d8d97  0.5854851212200756  14.76782005544856   0.9722879650937842       false                     false                   false
+9  unit_1bf5e16c  0.586063308703007   15.07336897134783   0.9860927885169954       false                     false                   false
+10 unit_1e0ba80f  0.5816667833241521  14.915579509059167  0.9894054175993818       false                     false                   false
+
+--- Requête 2 ---
+SELECT
+  COUNT(*) AS total_unites,
+  SUM(CASE WHEN predicted_defective THEN 1 ELSE 0 END) AS unites_defectueuses
+FROM detection_results;
+
+#  total_unites  unites_defectueuses
+1  35            8
+
+Correspondance exacte avec le résultat obtenu directement depuis le job EMR Serverless
+(docs/proofs/emr-persistent-bucket-proof.txt) : 35 unités, 8 défectueuses.
