@@ -65,3 +65,21 @@ resource "aws_iam_role_policy" "emr_serverless_s3" {
     }]
   })
 }
+
+resource "aws_iam_role_policy" "emr_serverless_data_lake" {
+  name = "ev-powertrain-analytics-emr-datalake-access"
+  role = aws_iam_role.emr_serverless_job.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "WriteResults"
+      Effect = "Allow"
+      Action = ["s3:PutObject", "s3:GetObject", "s3:ListBucket"]
+      Resource = [
+        aws_s3_bucket.data_lake.arn,
+        "${aws_s3_bucket.data_lake.arn}/*",
+      ]
+    }]
+  })
+}

@@ -118,3 +118,21 @@ resource "aws_iam_role_policy" "bastion_pass_role" {
     }]
   })
 }
+
+resource "aws_iam_role_policy" "bastion_data_lake" {
+  name = "ev-powertrain-analytics-bastion-datalake-access"
+  role = aws_iam_role.bastion.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "ReadResults"
+      Effect   = "Allow"
+      Action   = ["s3:GetObject", "s3:ListBucket"]
+      Resource = [
+        aws_s3_bucket.data_lake.arn,
+        "${aws_s3_bucket.data_lake.arn}/*",
+      ]
+    }]
+  })
+}
