@@ -56,6 +56,7 @@ def read_topic_batch(spark, topic, bootstrap_servers, schema):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--bootstrap-servers", required=True)
+    parser.add_argument("--output-path", required=True, help="s3://bucket/prefix pour écrire les résultats")
     args = parser.parse_args()
 
     spark = SparkSession.builder.appName("ev-powertrain-emr-detection").getOrCreate()
@@ -101,6 +102,10 @@ def main():
     classified.orderBy("unit_id").show(100, truncate=False)
     print(f"Total unités détectées : {classified.count()}")
     print(f"Unités défectueuses : {classified.filter(F.col('predicted_defective')).count()}")
+
+    # Parquet : format colonnaire, celui attendu par Athena/Glue Catalog en aval.
+    classified.write.mode("overwrite").parquet(args.output_path)
+    print(f"Résultats écrits sur {args.output_path}")
 
 
 if __name__ == "__main__":
