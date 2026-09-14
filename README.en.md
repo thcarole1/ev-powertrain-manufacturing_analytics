@@ -8,7 +8,7 @@ Real-time data pipeline simulating a manufacturing line for permanent magnet syn
 
 Second portfolio project, complementary to the [Electric Mobility Platform](LINK_TO_ADD) project, focused on skills not yet demonstrated: Kafka, Spark, and potentially Kubernetes/LLM as an optional extension.
 
-**Current state: both batch and streaming pipelines (1-sensor and 3-sensor) validated locally. Real AWS deployment validated end to end — ingestion (MSK Serverless) and detection (EMR Serverless) — then torn down at the end of the session to control costs.** S3 (data lake), Athena, and Power BI are still to be done.
+**Current state: both batch and streaming pipelines (1-sensor and 3-sensor) validated locally. Real AWS deployment validated end to end — ingestion (MSK Serverless), detection (EMR Serverless), and persistent storage (S3, Parquet results).** Ephemeral infrastructure (MSK, bastion, EMR) is torn down at the end of each session; the results bucket, however, survives in a separate Terraform module. Athena, Power BI, and CI/CD are still to be done.
 
 ## Understanding this project in 2 minutes (no technical jargon)
 
@@ -42,6 +42,8 @@ This project simulates an electric motor manufacturing line for vehicles. Every 
 **AWS, ingestion — MSK Serverless validated end to end** — default VPC reused, EC2 bastion with no SSH key (SSM access only), IAM scoped to the cluster. Full details, proof, and incidents in [ADR-005](docs/adr/0005-architecture-deploiement-aws.md) *(in French)*.
 
 **AWS, detection — EMR Serverless validated end to end** — standalone Spark job, native IAM authentication to MSK Serverless (after abandoning Glue, currently incompatible at the Terraform provider level). 55 real units read from MSK and classified: **12/12 defective units detected, 0 false positives**. Full details, proofs, and incidents in [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.md) *(in French)* and [docs/proofs/](docs/proofs/).
+
+**AWS, storage — persistent S3 data lake, separate from ephemeral infrastructure** — dedicated Terraform module (`terraform/data`), destroyed independently from `terraform/main`: detection results (Parquet) survive MSK/bastion/EMR being torn down between sessions. Validated after fixing a permission incident (missing `s3:DeleteObject` for overwriting results): 35/35 units classified, 8/8 defects detected, 0 false positives, results confirmed present after tearing down the ephemeral infra. Full details in [ADR-007](docs/adr/0007-data-lake-module-persistant.md) *(in French)*.
 
 ## Validated pipeline (local)
 
@@ -102,18 +104,18 @@ flowchart LR
 | Streaming processing (1 sensor) | PySpark (`spark.readStream`, session window) | Done |
 | Streaming processing (3 sensors) | Decoupled architecture (3 streams + batch join) | Done, validated at 50 units |
 | Anomaly detection (AWS) | EMR Serverless (Spark job, IAM) | Done, validated at 55 units |
-| Storage | — | To do |
+| Storage | S3, persistent Terraform module, Parquet results | Done |
 | Querying | — | To do |
 | Reporting | — | To do |
-| Infrastructure (Terraform) | MSK Serverless, EMR Serverless, VPC, IAM, bastion, S3 | Done |
+| Infrastructure (Terraform) | MSK Serverless, EMR Serverless, VPC, IAM, bastion (ephemeral) + S3 data lake (persistent, separate module) | Done |
 | CI/CD | — | To do |
 
 ## Project status
 
 | Item | Count |
 |---|---|
-| Phases completed | Phase 0 scoping + full local validation + AWS deployment (ingestion + detection) |
-| ADRs | 6 |
+| Phases completed | Phase 0 scoping + full local validation + AWS deployment (ingestion + detection + storage) |
+| ADRs | 7 |
 | Tests | 30 |
 
 ## Running locally
@@ -166,8 +168,9 @@ ADRs are written in French — this project's target job market. Happy to walk t
 - [ADR-004 — Decoupled architecture for 3-sensor streaming detection](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md) *(in French)*
 - [ADR-005 — AWS deployment architecture (backend, VPC, MSK Serverless, bastion)](docs/adr/0005-architecture-deploiement-aws.md) *(in French)*
 - [ADR-006 — Detection via EMR Serverless (Glue abandoned)](docs/adr/0006-emr-serverless-abandon-glue.md) *(in French)*
+- [ADR-007 — Separate Terraform module for the persistent data lake](docs/adr/0007-data-lake-module-persistant.md) *(in French)*
 
 ## Next steps
 
-- S3 (data lake), Athena, Power BI
-- Terraform: automate stopping EMR Serverless before `destroy` (currently manual, see ADR-006)
+- Athena (querying the already-persisted Parquet results), Power BI
+- CI/CD
