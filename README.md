@@ -8,7 +8,7 @@ Pipeline de données temps réel simulant une ligne de production de moteurs él
 
 Second projet de portfolio, complémentaire au projet [Electric Mobility Platform](LIEN_A_COMPLETER), axé sur des compétences non démontrées jusqu'ici : Kafka, Spark, et potentiellement Kubernetes/LLM en option.
 
-**État actuel : pipeline batch et streaming (1 capteur et 3 capteurs) validés en local. Déploiement AWS réel validé bout en bout — ingestion (MSK Serverless), détection (EMR Serverless) et stockage persistant (S3, résultats Parquet).** L'infrastructure éphémère (MSK, bastion, EMR) est détruite en fin de session ; le bucket S3 des résultats, lui, survit dans un module Terraform séparé. Athena, Power BI, CI/CD restent à faire.
+**État actuel : pipeline batch et streaming (1 capteur et 3 capteurs) validés en local. Architecture cible AWS complète, validée bout en bout** — ingestion (MSK Serverless), détection (EMR Serverless), stockage persistant (S3), requêtage (Athena) et restitution (Power BI). L'infrastructure éphémère (MSK, bastion, EMR) est détruite en fin de session ; les données et leur requêtage (S3, Glue Catalog, Athena) survivent dans un module Terraform séparé. CI/CD reste à faire.
 
 ## Comprendre ce projet en 2 minutes (sans jargon technique)
 
@@ -46,6 +46,10 @@ Ce projet simule une chaîne de fabrication de moteurs électriques pour véhicu
 **AWS, stockage — data lake S3 persistant, séparé de l'infra éphémère** — module Terraform dédié (`terraform/data`), détruit indépendamment de `terraform/main` : les résultats de détection (Parquet) survivent à la destruction de MSK/bastion/EMR entre les sessions. Validé après correction d'un incident de permission (`s3:DeleteObject` manquant pour l'écrasement des résultats) : 35/35 unités classifiées, 8/8 défectueuses détectées, 0 faux positif, résultats confirmés présents après destruction de l'infra éphémère. Détail complet dans [ADR-007](docs/adr/0007-data-lake-module-persistant.md).
 
 **AWS, requêtage — Athena validé sur les données persistées** — table Glue Data Catalog à schéma explicite (pas de Crawler, coût nul), groupe de travail Athena dédié. Requêtes réelles depuis la console : agrégation confirmant 35 unités, 8 défectueuses — correspondance exacte avec le résultat du job EMR. Coût négligeable (millième de centime pour l'usage actuel). Détail dans [ADR-008](docs/adr/0008-athena-glue-catalog.md).
+
+**AWS, restitution — Power BI, chaîne complète validée visuellement** — connecteur natif Athena, tableau de bord avec cartes KPI, répartition par statut, détail des unités défectueuses et seuils de détection affichés sur un nuage de points. Mêmes chiffres qu'Athena et le job EMR (35 unités, 8 défectueuses). Détail dans [ADR-009](docs/adr/0009-powerbi-restitution.md).
+
+![Tableau de bord Power BI](docs/images/powerbi-dashboard.png)
 
 ## Pipeline validé (local)
 
@@ -108,7 +112,7 @@ flowchart LR
 | Détection d'anomalie (AWS) | EMR Serverless (job Spark, IAM) | Fait, validé à 55 unités |
 | Stockage | S3, module Terraform persistant, résultats Parquet | Fait |
 | Requêtage | Athena + Glue Data Catalog (table à schéma explicite) | Fait |
-| Restitution | — | À faire |
+| Restitution | Power BI (connecteur natif Athena) | Fait |
 | Infrastructure (Terraform) | MSK Serverless, EMR Serverless, VPC, IAM, bastion (éphémère) + S3, Glue Catalog, Athena (persistant, module séparé) | Fait |
 | CI/CD | — | À faire |
 
@@ -116,8 +120,8 @@ flowchart LR
 
 | Élément | Nombre |
 |---|---|
-| Phases terminées | Cadrage Phase 0 + validation locale complète + déploiement AWS (ingestion + détection + stockage + requêtage) |
-| ADR | 8 |
+| Phases terminées | Cadrage Phase 0 + validation locale complète + architecture AWS cible complète (ingestion → détection → stockage → requêtage → restitution) |
+| ADR | 9 |
 | Tests | 30 |
 
 ## Utilisation locale
@@ -170,8 +174,9 @@ Détail complet des approches et incidents rencontrés dans [ADR-002](docs/adr/0
 - [ADR-006 — Détection via EMR Serverless (abandon de Glue)](docs/adr/0006-emr-serverless-abandon-glue.md)
 - [ADR-007 — Module Terraform séparé pour le data lake persistant](docs/adr/0007-data-lake-module-persistant.md)
 - [ADR-008 — Requêtage Athena sur le data lake persistant](docs/adr/0008-athena-glue-catalog.md)
+- [ADR-009 — Restitution via Power BI](docs/adr/0009-powerbi-restitution.md)
 
 ## Prochaines étapes
 
-- Power BI (connexion à Athena)
 - CI/CD
+- Pitch oral, relecture finale du portfolio (l'architecture cible AWS est désormais complète et validée bout en bout)
