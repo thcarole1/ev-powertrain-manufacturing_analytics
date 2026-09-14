@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Java (requis par PySpark)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dépendances
+        run: pip install -r requirements.txt
+
+      - name: Tests
+        run: python -m pytest tests/ -v
+
+  terraform-validate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [bootstrap, main, data]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.0"
+
+      - name: Format (lecture seule)
+        run: terraform fmt -check -recursive
+        working-directory: terraform/${{ matrix.module }}
+
+      # -backend=false : pas d'accès au state distant en CI, aucun identifiant
+      # AWS nécessaire — seule la syntaxe est vérifiée, jamais un vrai plan/apply.
+      - name: Init (sans backend)
+        run: terraform init -backend=false
+        working-directory: terraform/${{ matrix.module }}
+
+      - name: Validate
+        run: terraform validate
+        working-directory: terraform/${{ matrix.module }}
