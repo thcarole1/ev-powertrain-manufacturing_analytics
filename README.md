@@ -45,6 +45,8 @@ Ce projet simule une chaîne de fabrication de moteurs électriques pour véhicu
 
 **AWS, stockage — data lake S3 persistant, séparé de l'infra éphémère** — module Terraform dédié (`terraform/data`), détruit indépendamment de `terraform/main` : les résultats de détection (Parquet) survivent à la destruction de MSK/bastion/EMR entre les sessions. Validé après correction d'un incident de permission (`s3:DeleteObject` manquant pour l'écrasement des résultats) : 35/35 unités classifiées, 8/8 défectueuses détectées, 0 faux positif, résultats confirmés présents après destruction de l'infra éphémère. Détail complet dans [ADR-007](docs/adr/0007-data-lake-module-persistant.md).
 
+**AWS, requêtage — Athena validé sur les données persistées** — table Glue Data Catalog à schéma explicite (pas de Crawler, coût nul), groupe de travail Athena dédié. Requêtes réelles depuis la console : agrégation confirmant 35 unités, 8 défectueuses — correspondance exacte avec le résultat du job EMR. Coût négligeable (millième de centime pour l'usage actuel). Détail dans [ADR-008](docs/adr/0008-athena-glue-catalog.md).
+
 ## Pipeline validé (local)
 
 ```mermaid
@@ -105,17 +107,17 @@ flowchart LR
 | Traitement streaming (3 capteurs) | Architecture découplée (3 flux + jointure batch) | Fait, validé à 50 unités |
 | Détection d'anomalie (AWS) | EMR Serverless (job Spark, IAM) | Fait, validé à 55 unités |
 | Stockage | S3, module Terraform persistant, résultats Parquet | Fait |
-| Requêtage | — | À faire |
+| Requêtage | Athena + Glue Data Catalog (table à schéma explicite) | Fait |
 | Restitution | — | À faire |
-| Infrastructure (Terraform) | MSK Serverless, EMR Serverless, VPC, IAM, bastion (éphémère) + S3 data lake (persistant, module séparé) | Fait |
+| Infrastructure (Terraform) | MSK Serverless, EMR Serverless, VPC, IAM, bastion (éphémère) + S3, Glue Catalog, Athena (persistant, module séparé) | Fait |
 | CI/CD | — | À faire |
 
 ## État du projet
 
 | Élément | Nombre |
 |---|---|
-| Phases terminées | Cadrage Phase 0 + validation locale complète + déploiement AWS (ingestion + détection + stockage) |
-| ADR | 7 |
+| Phases terminées | Cadrage Phase 0 + validation locale complète + déploiement AWS (ingestion + détection + stockage + requêtage) |
+| ADR | 8 |
 | Tests | 30 |
 
 ## Utilisation locale
@@ -167,8 +169,9 @@ Détail complet des approches et incidents rencontrés dans [ADR-002](docs/adr/0
 - [ADR-005 — Architecture de déploiement AWS (backend, VPC, MSK Serverless, bastion)](docs/adr/0005-architecture-deploiement-aws.md)
 - [ADR-006 — Détection via EMR Serverless (abandon de Glue)](docs/adr/0006-emr-serverless-abandon-glue.md)
 - [ADR-007 — Module Terraform séparé pour le data lake persistant](docs/adr/0007-data-lake-module-persistant.md)
+- [ADR-008 — Requêtage Athena sur le data lake persistant](docs/adr/0008-athena-glue-catalog.md)
 
 ## Prochaines étapes
 
-- Athena (requêtage sur les résultats Parquet déjà persistés), Power BI
+- Power BI (connexion à Athena)
 - CI/CD

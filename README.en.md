@@ -45,6 +45,8 @@ This project simulates an electric motor manufacturing line for vehicles. Every 
 
 **AWS, storage — persistent S3 data lake, separate from ephemeral infrastructure** — dedicated Terraform module (`terraform/data`), destroyed independently from `terraform/main`: detection results (Parquet) survive MSK/bastion/EMR being torn down between sessions. Validated after fixing a permission incident (missing `s3:DeleteObject` for overwriting results): 35/35 units classified, 8/8 defects detected, 0 false positives, results confirmed present after tearing down the ephemeral infra. Full details in [ADR-007](docs/adr/0007-data-lake-module-persistant.md) *(in French)*.
 
+**AWS, querying — Athena validated on persisted data** — Glue Data Catalog table with an explicit schema (no crawler, zero cost), dedicated Athena workgroup. Real queries from the console: aggregation confirming 35 units, 8 defective — an exact match with the EMR job's result. Negligible cost (a fraction of a cent for current usage). Details in [ADR-008](docs/adr/0008-athena-glue-catalog.md) *(in French)*.
+
 ## Validated pipeline (local)
 
 ```mermaid
@@ -105,17 +107,17 @@ flowchart LR
 | Streaming processing (3 sensors) | Decoupled architecture (3 streams + batch join) | Done, validated at 50 units |
 | Anomaly detection (AWS) | EMR Serverless (Spark job, IAM) | Done, validated at 55 units |
 | Storage | S3, persistent Terraform module, Parquet results | Done |
-| Querying | — | To do |
+| Querying | Athena + Glue Data Catalog (explicit-schema table) | Done |
 | Reporting | — | To do |
-| Infrastructure (Terraform) | MSK Serverless, EMR Serverless, VPC, IAM, bastion (ephemeral) + S3 data lake (persistent, separate module) | Done |
+| Infrastructure (Terraform) | MSK Serverless, EMR Serverless, VPC, IAM, bastion (ephemeral) + S3, Glue Catalog, Athena (persistent, separate module) | Done |
 | CI/CD | — | To do |
 
 ## Project status
 
 | Item | Count |
 |---|---|
-| Phases completed | Phase 0 scoping + full local validation + AWS deployment (ingestion + detection + storage) |
-| ADRs | 7 |
+| Phases completed | Phase 0 scoping + full local validation + AWS deployment (ingestion + detection + storage + querying) |
+| ADRs | 8 |
 | Tests | 30 |
 
 ## Running locally
@@ -169,8 +171,9 @@ ADRs are written in French — this project's target job market. Happy to walk t
 - [ADR-005 — AWS deployment architecture (backend, VPC, MSK Serverless, bastion)](docs/adr/0005-architecture-deploiement-aws.md) *(in French)*
 - [ADR-006 — Detection via EMR Serverless (Glue abandoned)](docs/adr/0006-emr-serverless-abandon-glue.md) *(in French)*
 - [ADR-007 — Separate Terraform module for the persistent data lake](docs/adr/0007-data-lake-module-persistant.md) *(in French)*
+- [ADR-008 — Athena querying on the persistent data lake](docs/adr/0008-athena-glue-catalog.md) *(in French)*
 
 ## Next steps
 
-- Athena (querying the already-persisted Parquet results), Power BI
+- Power BI (connecting to Athena)
 - CI/CD
