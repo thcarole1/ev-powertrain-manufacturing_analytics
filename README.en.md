@@ -114,14 +114,14 @@ flowchart LR
 | Querying | Athena + Glue Data Catalog (explicit-schema table) | Done |
 | Reporting | Power BI (native Athena connector) | Done |
 | Infrastructure (Terraform) | MSK Serverless, EMR Serverless, VPC, IAM, bastion (ephemeral) + S3, Glue Catalog, Athena (persistent, separate module) | Done |
-| CI/CD | — | To do |
+| CI/CD | GitHub Actions (tests + Terraform validation) | Done |
 
 ## Project status
 
 | Item | Count |
 |---|---|
-| Phases completed | Phase 0 scoping + full local validation + complete AWS target architecture (ingestion → detection → storage → querying → reporting) |
-| ADRs | 9 |
+| Phases completed | Phase 0 scoping + full local validation + complete AWS target architecture + CI/CD |
+| ADRs | 10 |
 | Tests | 30 |
 
 ## Running locally
@@ -177,8 +177,8 @@ ADRs are written in French — this project's target job market. Happy to walk t
 - [ADR-007 — Separate Terraform module for the persistent data lake](docs/adr/0007-data-lake-module-persistant.md) *(in French)*
 - [ADR-008 — Athena querying on the persistent data lake](docs/adr/0008-athena-glue-catalog.md) *(in French)*
 - [ADR-009 — Reporting via Power BI](docs/adr/0009-powerbi-restitution.md) *(in French)*
+- [ADR-010 — Continuous integration via GitHub Actions](docs/adr/0010-cicd-github-actions.md) *(in French)*
 
 ## Next steps
 
-- CI/CD
-- Oral pitch, final portfolio review (the target AWS architecture is now complete and validated end to end)
+- Oral pitch, final portfolio review (the technical roadmap is now complete)

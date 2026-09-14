@@ -114,14 +114,14 @@ flowchart LR
 | Requêtage | Athena + Glue Data Catalog (table à schéma explicite) | Fait |
 | Restitution | Power BI (connecteur natif Athena) | Fait |
 | Infrastructure (Terraform) | MSK Serverless, EMR Serverless, VPC, IAM, bastion (éphémère) + S3, Glue Catalog, Athena (persistant, module séparé) | Fait |
-| CI/CD | — | À faire |
+| CI/CD | GitHub Actions (tests + validation Terraform) | Fait |
 
 ## État du projet
 
 | Élément | Nombre |
 |---|---|
-| Phases terminées | Cadrage Phase 0 + validation locale complète + architecture AWS cible complète (ingestion → détection → stockage → requêtage → restitution) |
-| ADR | 9 |
+| Phases terminées | Cadrage Phase 0 + validation locale complète + architecture AWS cible complète + CI/CD |
+| ADR | 10 |
 | Tests | 30 |
 
 ## Utilisation locale
@@ -175,8 +175,8 @@ Détail complet des approches et incidents rencontrés dans [ADR-002](docs/adr/0
 - [ADR-007 — Module Terraform séparé pour le data lake persistant](docs/adr/0007-data-lake-module-persistant.md)
 - [ADR-008 — Requêtage Athena sur le data lake persistant](docs/adr/0008-athena-glue-catalog.md)
 - [ADR-009 — Restitution via Power BI](docs/adr/0009-powerbi-restitution.md)
+- [ADR-010 — Intégration continue via GitHub Actions](docs/adr/0010-cicd-github-actions.md)
 
 ## Prochaines étapes
 
-- CI/CD
-- Pitch oral, relecture finale du portfolio (l'architecture cible AWS est désormais complète et validée bout en bout)
+- Pitch oral, relecture finale du portfolio (partie technique de la roadmap complète)
