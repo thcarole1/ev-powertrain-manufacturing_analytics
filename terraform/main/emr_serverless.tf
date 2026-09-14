@@ -12,6 +12,22 @@ resource "aws_emrserverless_application" "detection" {
     security_group_ids = [aws_security_group.emr_serverless.id]
   }
 
+  # Après un job, l'application reste STARTED — un état que Terraform ne
+  # peut pas détruire directement (incident rencontré et documenté dans
+  # ADR-006). Ce provisioner l'arrête automatiquement avant la suppression,
+  # et attend confirmation de l'arrêt plutôt que de supposer qu'il est
+  # instantané. S'exécute en local (poste qui lance terraform destroy),
+  # nécessite l'AWS CLI déjà configuré.
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      aws emr-serverless stop-application --application-id ${self.id} --region eu-west-3
+      while [ "$(aws emr-serverless get-application --application-id ${self.id} --region eu-west-3 --query 'application.state' --output text)" != "STOPPED" ]; do
+        sleep 5
+      done
+    EOT
+  }
+
   tags = { Name = "ev-powertrain-analytics-emr-serverless" }
 }
 
