@@ -61,7 +61,60 @@ resource "aws_iam_role_policy" "msk_producer" {
   })
 }
 
+# Oublié initialement : le bastion doit pouvoir écrire sur le bucket EMR
+# (JARs, script du job) — sa policy ne couvrait jusqu'ici que MSK.
+resource "aws_iam_role_policy" "bastion_s3" {
+  name = "ev-powertrain-analytics-bastion-s3-access"
+  role = aws_iam_role.bastion.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "UploadJarsAndScript"
+      Effect = "Allow"
+      Action = ["s3:PutObject", "s3:GetObject", "s3:ListBucket"]
+      Resource = [
+        aws_s3_bucket.emr_assets.arn,
+        "${aws_s3_bucket.emr_assets.arn}/*",
+      ]
+    }]
+  })
+}
+
 resource "aws_iam_instance_profile" "bastion" {
   name = "ev-powertrain-analytics-bastion-profile"
   role = aws_iam_role.bastion.name
+}
+
+resource "aws_iam_role_policy" "bastion_emr" {
+  name = "ev-powertrain-analytics-bastion-emr-access"
+  role = aws_iam_role.bastion.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "StartAndCheckEmrJob"
+      Effect = "Allow"
+      Action = ["emr-serverless:StartJobRun", "emr-serverless:GetJobRun"]
+      Resource = [
+        aws_emrserverless_application.detection.arn,
+        "${aws_emrserverless_application.detection.arn}/jobruns/*",
+      ]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "bastion_pass_role" {
+  name = "ev-powertrain-analytics-bastion-passrole"
+  role = aws_iam_role.bastion.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "PassEmrJobRole"
+      Effect   = "Allow"
+      Action   = "iam:PassRole"
+      Resource = aws_iam_role.emr_serverless_job.arn
+    }]
+  })
 }
