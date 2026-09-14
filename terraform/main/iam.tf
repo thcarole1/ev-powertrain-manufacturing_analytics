@@ -119,6 +119,8 @@ resource "aws_iam_role_policy" "bastion_pass_role" {
   })
 }
 
+# Bucket data lake désormais dans un module Terraform séparé (terraform/data,
+# persistant) — accès via terraform_remote_state, plus de ressource locale.
 resource "aws_iam_role_policy" "bastion_data_lake" {
   name = "ev-powertrain-analytics-bastion-datalake-access"
   role = aws_iam_role.bastion.id
@@ -130,8 +132,8 @@ resource "aws_iam_role_policy" "bastion_data_lake" {
       Effect   = "Allow"
       Action   = ["s3:GetObject", "s3:ListBucket"]
       Resource = [
-        aws_s3_bucket.data_lake.arn,
-        "${aws_s3_bucket.data_lake.arn}/*",
+        data.terraform_remote_state.data_lake.outputs.data_lake_bucket_arn,
+        "${data.terraform_remote_state.data_lake.outputs.data_lake_bucket_arn}/*",
       ]
     }]
   })

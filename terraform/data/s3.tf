@@ -1,5 +1,7 @@
-# Bucket dédié aux données produites (résultats de détection), distinct du
-# bucket EMR existant (JARs, script du job) — sépare outils et données.
+# Module séparé de terraform/main : ce bucket contient les résultats de
+# détection (Parquet) et doit survivre à la destruction de l'infra éphémère
+# (MSK, bastion, EMR Serverless) entre les sessions — coût négligeable au
+# repos, contrairement à MSK/EMR.
 
 resource "aws_s3_bucket" "data_lake" {
   bucket = "ev-powertrain-analytics-datalake-${random_id.datalake_suffix.hex}"
@@ -26,8 +28,4 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "data_lake" {
       sse_algorithm = "AES256"
     }
   }
-}
-
-output "data_lake_bucket" {
-  value = aws_s3_bucket.data_lake.bucket
 }
