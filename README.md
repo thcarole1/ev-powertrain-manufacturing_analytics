@@ -8,7 +8,7 @@ Pipeline de données temps réel simulant une ligne de production de moteurs él
 
 Second projet de portfolio, complémentaire au projet [Electric Mobility Platform](LIEN_A_COMPLETER), axé sur des compétences non démontrées jusqu'ici : Kafka, Spark, et potentiellement Kubernetes/LLM en option.
 
-**État actuel : pipeline batch et streaming (1 capteur et 3 capteurs) validés en local. Déploiement AWS réel validé bout en bout — ingestion (MSK Serverless) et détection (EMR Serverless) — puis détruit en fin de session pour maîtriser les coûts.** S3 (data lake), Athena, Power BI restent à faire.
+**État actuel : pipeline batch et streaming (1 capteur et 3 capteurs) validés en local. Déploiement AWS réel validé bout en bout — ingestion (MSK Serverless), détection (EMR Serverless) et stockage persistant (S3, résultats Parquet).** L'infrastructure éphémère (MSK, bastion, EMR) est détruite en fin de session ; le bucket S3 des résultats, lui, survit dans un module Terraform séparé. Athena, Power BI, CI/CD restent à faire.
 
 ## Comprendre ce projet en 2 minutes (sans jargon technique)
 
@@ -42,6 +42,8 @@ Ce projet simule une chaîne de fabrication de moteurs électriques pour véhicu
 **AWS, ingestion — MSK Serverless validé bout en bout** — VPC par défaut réutilisé, bastion EC2 sans clé SSH (accès SSM uniquement), IAM scopé au cluster. Détail complet, preuve et incidents dans [ADR-005](docs/adr/0005-architecture-deploiement-aws.md).
 
 **AWS, détection — EMR Serverless validé bout en bout** — job Spark autonome, authentification IAM native vers MSK Serverless (après abandon de Glue, incompatible avec Terraform à ce jour). 55 unités réelles lues depuis MSK et classifiées : **12/12 défectueuses détectées, 0 faux positif**. Détail complet, preuves et incidents dans [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.md) et [docs/proofs/](docs/proofs/).
+
+**AWS, stockage — data lake S3 persistant, séparé de l'infra éphémère** — module Terraform dédié (`terraform/data`), détruit indépendamment de `terraform/main` : les résultats de détection (Parquet) survivent à la destruction de MSK/bastion/EMR entre les sessions. Validé après correction d'un incident de permission (`s3:DeleteObject` manquant pour l'écrasement des résultats) : 35/35 unités classifiées, 8/8 défectueuses détectées, 0 faux positif, résultats confirmés présents après destruction de l'infra éphémère. Détail complet dans [ADR-007](docs/adr/0007-data-lake-module-persistant.md).
 
 ## Pipeline validé (local)
 
@@ -102,18 +104,18 @@ flowchart LR
 | Traitement streaming (1 capteur) | PySpark (`spark.readStream`, session window) | Fait |
 | Traitement streaming (3 capteurs) | Architecture découplée (3 flux + jointure batch) | Fait, validé à 50 unités |
 | Détection d'anomalie (AWS) | EMR Serverless (job Spark, IAM) | Fait, validé à 55 unités |
-| Stockage | — | À faire |
+| Stockage | S3, module Terraform persistant, résultats Parquet | Fait |
 | Requêtage | — | À faire |
 | Restitution | — | À faire |
-| Infrastructure (Terraform) | MSK Serverless, EMR Serverless, VPC, IAM, bastion, S3 | Fait |
+| Infrastructure (Terraform) | MSK Serverless, EMR Serverless, VPC, IAM, bastion (éphémère) + S3 data lake (persistant, module séparé) | Fait |
 | CI/CD | — | À faire |
 
 ## État du projet
 
 | Élément | Nombre |
 |---|---|
-| Phases terminées | Cadrage Phase 0 + validation locale complète + déploiement AWS (ingestion + détection) |
-| ADR | 6 |
+| Phases terminées | Cadrage Phase 0 + validation locale complète + déploiement AWS (ingestion + détection + stockage) |
+| ADR | 7 |
 | Tests | 30 |
 
 ## Utilisation locale
@@ -164,8 +166,9 @@ Détail complet des approches et incidents rencontrés dans [ADR-002](docs/adr/0
 - [ADR-004 — Architecture découplée pour la détection streaming à 3 capteurs](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md)
 - [ADR-005 — Architecture de déploiement AWS (backend, VPC, MSK Serverless, bastion)](docs/adr/0005-architecture-deploiement-aws.md)
 - [ADR-006 — Détection via EMR Serverless (abandon de Glue)](docs/adr/0006-emr-serverless-abandon-glue.md)
+- [ADR-007 — Module Terraform séparé pour le data lake persistant](docs/adr/0007-data-lake-module-persistant.md)
 
 ## Prochaines étapes
 
-- S3 (data lake), Athena, Power BI
-- Terraform : automatiser l'arrêt d'EMR Serverless avant `destroy` (actuellement manuel, voir ADR-006)
+- Athena (requêtage sur les résultats Parquet déjà persistés), Power BI
+- CI/CD
