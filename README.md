@@ -8,7 +8,7 @@ Pipeline de données temps réel simulant une ligne de production de moteurs él
 
 Second projet de portfolio, complémentaire au projet [Electric Mobility Platform](LIEN_A_COMPLETER), axé sur des compétences non démontrées jusqu'ici : Kafka, Spark, et potentiellement Kubernetes/LLM en option.
 
-**État actuel : pipeline batch et streaming (1 capteur et 3 capteurs) validés en local. Premier déploiement AWS réel effectué et validé (MSK Serverless), puis détruit en fin de session pour maîtriser les coûts.** Glue/EMR, S3, Athena, Power BI restent à faire.
+**État actuel : pipeline batch et streaming (1 capteur et 3 capteurs) validés en local. Déploiement AWS réel validé bout en bout — ingestion (MSK Serverless) et détection (EMR Serverless) — puis détruit en fin de session pour maîtriser les coûts.** S3 (data lake), Athena, Power BI restent à faire.
 
 ## Comprendre ce projet en 2 minutes (sans jargon technique)
 
@@ -39,7 +39,9 @@ Ce projet simule une chaîne de fabrication de moteurs électriques pour véhicu
 
 **Streaming, 3 capteurs, validé à grande échelle** — 14/14 unités défectueuses détectées, 0 faux positif sur 36 unités saines. Détail dans [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md).
 
-**AWS, MSK Serverless — premier déploiement réel validé bout en bout** — VPC par défaut réutilisé, bastion EC2 sans clé SSH (accès SSM uniquement), IAM scopé au cluster. Le vrai simulateur du projet (pas un message de test) a produit 5 unités vers un cluster MSK Serverless réel ; relecture confirmée structurellement correcte (15 000 messages sur un topic, correspondance exacte au calcul attendu). Cinq incidents réels diagnostiqués et documentés. Détail complet, preuve et incidents dans [ADR-005](docs/adr/0005-architecture-deploiement-aws.md).
+**AWS, ingestion — MSK Serverless validé bout en bout** — VPC par défaut réutilisé, bastion EC2 sans clé SSH (accès SSM uniquement), IAM scopé au cluster. Détail complet, preuve et incidents dans [ADR-005](docs/adr/0005-architecture-deploiement-aws.md).
+
+**AWS, détection — EMR Serverless validé bout en bout** — job Spark autonome, authentification IAM native vers MSK Serverless (après abandon de Glue, incompatible avec Terraform à ce jour). 55 unités réelles lues depuis MSK et classifiées : **12/12 défectueuses détectées, 0 faux positif**. Détail complet, preuves et incidents dans [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.md) et [docs/proofs/](docs/proofs/).
 
 ## Pipeline validé (local)
 
@@ -62,16 +64,27 @@ flowchart TD
     D --> E["Diagnostic<br/>unité saine ou défectueuse"]
 ```
 
-Chaque capteur est traité par sa propre requête streaming (session window), indépendamment des deux autres. Les résultats sont ensuite consolidés par unité — avec résolution des doublons résiduels — avant le diagnostic final. Détail complet (pourquoi une jointure stream-stream native a été abandonnée au profit de cette architecture) dans [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md).
+Chaque capteur est traité par sa propre requête streaming (session window), indépendamment des deux autres. Les résultats sont ensuite consolidés par unité — avec résolution des doublons résiduels — avant le diagnostic final. Détail complet dans [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md).
 
-**Pourquoi 3 capteurs ici, alors que le pipeline local utilise 4 topics ?** Les 4 topics Kafka correspondent aux 4 types de capteurs prévus dans le brief initial (température, vibration, courant, couple) — un topic par capteur, indépendamment de son usage réel en aval. Seuls 3 sont exploités par la détection : les deux scénarios de panne retenus (roulement, déséquilibre de phase) ne nécessitent pas le couple. Le topic `sensor-torque` existe, reçoit des données simulées, mais n'entre dans aucune logique de classification pour l'instant.
+**Pourquoi 3 capteurs ici, alors que le pipeline local utilise 4 topics ?** Les 4 topics Kafka correspondent aux 4 types de capteurs prévus dans le brief initial — un topic par capteur, indépendamment de son usage réel en aval. Seuls 3 sont exploités par la détection : les deux scénarios de panne retenus ne nécessitent pas le couple. Le topic `sensor-torque` existe, reçoit des données simulées, mais n'entre dans aucune logique de classification pour l'instant.
+
+## Pipeline AWS validé (MSK Serverless → EMR Serverless)
+
+```mermaid
+flowchart LR
+    A["Bastion EC2<br/>producteur, IAM"] --> B["MSK Serverless<br/>4 topics"]
+    B --> C["EMR Serverless<br/>job Spark, IAM"]
+    C --> D["Diagnostic<br/>par unité"]
+```
+
+Le bastion (accès SSM uniquement, aucune clé SSH) simule et envoie les unités vers MSK Serverless. EMR Serverless lit ces données avec le même mécanisme d'authentification IAM, exécute la détection, puis écrit son résultat dans les journaux du job. Glue a été exploré en premier puis abandonné — incompatible avec l'authentification IAM de MSK Serverless au niveau du fournisseur Terraform actuel. Détail complet et incidents dans [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.md).
 
 ## Architecture cible (AWS, à déployer)
 
 ```mermaid
 flowchart LR
     A["Simulateur Python"] --> B["Amazon MSK"]
-    B --> C["Traitement Spark<br/>EMR ou Glue"]
+    B --> C["EMR Serverless"]
     C --> D["S3 - Data Lake"]
     D --> E["Glue Catalog"]
     E --> F["Athena"]
@@ -84,23 +97,23 @@ flowchart LR
 |---|---|---|
 | Simulation de données | Python (numpy) | Fait |
 | Ingestion streaming (local) | Kafka (local, KRaft) | Fait |
-| Ingestion streaming (AWS) | Amazon MSK Serverless | Déployé et validé, détruit après session |
+| Ingestion streaming (AWS) | Amazon MSK Serverless | Fait, validé bout en bout |
 | Traitement batch | PySpark (`spark.read`) | Fait |
 | Traitement streaming (1 capteur) | PySpark (`spark.readStream`, session window) | Fait |
 | Traitement streaming (3 capteurs) | Architecture découplée (3 flux + jointure batch) | Fait, validé à 50 unités |
-| Détection d'anomalie (AWS, Glue/EMR) | — | À faire |
+| Détection d'anomalie (AWS) | EMR Serverless (job Spark, IAM) | Fait, validé à 55 unités |
 | Stockage | — | À faire |
 | Requêtage | — | À faire |
 | Restitution | — | À faire |
-| Infrastructure (Terraform) | MSK Serverless, VPC, IAM, bastion | Fait pour MSK ; Glue/S3 à ajouter |
+| Infrastructure (Terraform) | MSK Serverless, EMR Serverless, VPC, IAM, bastion, S3 | Fait |
 | CI/CD | — | À faire |
 
 ## État du projet
 
 | Élément | Nombre |
 |---|---|
-| Phases terminées | Cadrage Phase 0 + validation locale complète + premier déploiement AWS (MSK) |
-| ADR | 5 |
+| Phases terminées | Cadrage Phase 0 + validation locale complète + déploiement AWS (ingestion + détection) |
+| ADR | 6 |
 | Tests | 30 |
 
 ## Utilisation locale
@@ -141,7 +154,7 @@ Une fois les unités finalisées (`Ctrl+C` sur le premier terminal) :
 python detect_anomalies_from_streaming_files.py
 ```
 
-Détail complet des approches et incidents rencontrés dans [ADR-002](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.md) (simulateur, aliasing), [ADR-003](docs/adr/0003-detection-streaming-session-window-watermark.md) (streaming 1 capteur), [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md) (streaming 3 capteurs).
+Détail complet des approches et incidents rencontrés dans [ADR-002](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.md) (simulateur, aliasing), [ADR-003](docs/adr/0003-detection-streaming-session-window-watermark.md) (streaming 1 capteur), [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md) (streaming 3 capteurs), [ADR-005](docs/adr/0005-architecture-deploiement-aws.md) (MSK Serverless), [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.md) (EMR Serverless).
 
 ## Décisions d'architecture
 
@@ -150,8 +163,9 @@ Détail complet des approches et incidents rencontrés dans [ADR-002](docs/adr/0
 - [ADR-003 — Détection en streaming (session window, watermark, résilience)](docs/adr/0003-detection-streaming-session-window-watermark.md)
 - [ADR-004 — Architecture découplée pour la détection streaming à 3 capteurs](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md)
 - [ADR-005 — Architecture de déploiement AWS (backend, VPC, MSK Serverless, bastion)](docs/adr/0005-architecture-deploiement-aws.md)
+- [ADR-006 — Détection via EMR Serverless (abandon de Glue)](docs/adr/0006-emr-serverless-abandon-glue.md)
 
 ## Prochaines étapes
 
-- Détection Spark/Glue sur MSK Serverless (nouvelle session)
-- Redéploiement de l'infrastructure via `terraform apply` (state déjà en place)
+- S3 (data lake), Athena, Power BI
+- Terraform : automatiser l'arrêt d'EMR Serverless avant `destroy` (actuellement manuel, voir ADR-006)
