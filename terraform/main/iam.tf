@@ -128,9 +128,9 @@ resource "aws_iam_role_policy" "bastion_data_lake" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Sid      = "ReadResults"
-      Effect   = "Allow"
-      Action   = ["s3:GetObject", "s3:ListBucket"]
+      Sid    = "ReadResults"
+      Effect = "Allow"
+      Action = ["s3:GetObject", "s3:ListBucket"]
       Resource = [
         data.terraform_remote_state.data_lake.outputs.data_lake_bucket_arn,
         "${data.terraform_remote_state.data_lake.outputs.data_lake_bucket_arn}/*",
