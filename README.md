@@ -6,9 +6,9 @@
 
 Pipeline de données temps réel simulant une ligne de production de moteurs électriques synchrones à aimants permanents (PMSM), de l'ingestion de capteurs IoT (température, vibration, courant, couple) jusqu'à la détection d'anomalies et la restitution métier.
 
-Second projet de portfolio, complémentaire au projet [Electric Mobility Platform](LIEN_A_COMPLETER), axé sur des compétences non démontrées jusqu'ici : Kafka, Spark, et potentiellement Kubernetes/LLM en option.
+Second projet de portfolio, complémentaire au projet [Electric Mobility Platform](https://github.com/thcarole1/electric-mobility-platform), axé sur des compétences non démontrées jusqu'ici : Kafka, Spark.
 
-**État actuel : pipeline batch et streaming (1 capteur et 3 capteurs) validés en local. Architecture cible AWS complète, validée bout en bout** — ingestion (MSK Serverless), détection (EMR Serverless), stockage persistant (S3), requêtage (Athena) et restitution (Power BI). L'infrastructure éphémère (MSK, bastion, EMR) est détruite en fin de session ; les données et leur requêtage (S3, Glue Catalog, Athena) survivent dans un module Terraform séparé. CI/CD reste à faire.
+**État actuel : pipeline batch et streaming (1 capteur et 3 capteurs) validés en local. Architecture cible AWS complète, validée bout en bout** — ingestion (MSK Serverless), détection (EMR Serverless), stockage persistant (S3), requêtage (Athena), restitution (Power BI), et CI/CD (GitHub Actions). L'infrastructure éphémère (MSK, bastion, EMR) est détruite en fin de session ; les données et leur requêtage (S3, Glue Catalog, Athena) survivent dans un module Terraform séparé.
 
 ## Comprendre ce projet en 2 minutes (sans jargon technique)
 
@@ -87,7 +87,7 @@ flowchart LR
 
 Le bastion (accès SSM uniquement, aucune clé SSH) simule et envoie les unités vers MSK Serverless. EMR Serverless lit ces données avec le même mécanisme d'authentification IAM, exécute la détection, puis écrit son résultat dans les journaux du job. Glue a été exploré en premier puis abandonné — incompatible avec l'authentification IAM de MSK Serverless au niveau du fournisseur Terraform actuel. Détail complet et incidents dans [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.md).
 
-## Architecture cible (AWS, à déployer)
+## Architecture complète (AWS, validée)
 
 ```mermaid
 flowchart LR
@@ -98,6 +98,8 @@ flowchart LR
     E --> F["Athena"]
     F --> G["Power BI"]
 ```
+
+Seul schéma montrant la chaîne complète de bout en bout — chaque brique est individuellement détaillée, avec sa preuve de fonctionnement, dans les sections et ADR ci-dessus.
 
 ## Stack technique
 

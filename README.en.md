@@ -6,9 +6,9 @@
 
 Real-time data pipeline simulating a manufacturing line for permanent magnet synchronous motors (PMSM) used in electric vehicles — from IoT sensor ingestion (temperature, vibration, current, torque) to anomaly detection and business reporting.
 
-Second portfolio project, complementary to the [Electric Mobility Platform](LINK_TO_ADD) project, focused on skills not yet demonstrated: Kafka, Spark, and potentially Kubernetes/LLM as an optional extension.
+Second portfolio project, complementary to the [Electric Mobility Platform](https://github.com/thcarole1/electric-mobility-platform) project, focused on skills not yet demonstrated: Kafka, Spark.
 
-**Current state: both batch and streaming pipelines (1-sensor and 3-sensor) validated locally. Full target AWS architecture, validated end to end** — ingestion (MSK Serverless), detection (EMR Serverless), persistent storage (S3), querying (Athena), and reporting (Power BI). Ephemeral infrastructure (MSK, bastion, EMR) is torn down at the end of each session; the data and its querying layer (S3, Glue Catalog, Athena) survive in a separate Terraform module. CI/CD is done too.
+**Current state: both batch and streaming pipelines (1-sensor and 3-sensor) validated locally. Full target AWS architecture, validated end to end** — ingestion (MSK Serverless), detection (EMR Serverless), persistent storage (S3), querying (Athena), reporting (Power BI), and CI/CD (GitHub Actions). Ephemeral infrastructure (MSK, bastion, EMR) is torn down at the end of each session; the data and its querying layer (S3, Glue Catalog, Athena) survive in a separate Terraform module.
 
 ## Understanding this project in 2 minutes (no technical jargon)
 
@@ -87,7 +87,7 @@ flowchart LR
 
 The bastion (SSM access only, no SSH key) simulates and sends units to MSK Serverless. EMR Serverless reads this data with the same IAM authentication mechanism, runs detection, and writes its result to the job's logs. Glue was explored first, then abandoned — incompatible with MSK Serverless's IAM authentication at the current Terraform provider level. Full details and incidents in [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.en.md).
 
-## Target architecture (AWS, to be deployed)
+## Full architecture (AWS, validated)
 
 ```mermaid
 flowchart LR
@@ -98,6 +98,8 @@ flowchart LR
     E --> F["Athena"]
     F --> G["Power BI"]
 ```
+
+The only diagram showing the full end-to-end chain — each piece is individually detailed, with its proof of functioning, in the sections and ADRs above.
 
 ## Tech stack
 
