@@ -8,7 +8,7 @@ Real-time data pipeline simulating a manufacturing line for permanent magnet syn
 
 Second portfolio project, complementary to the [Electric Mobility Platform](LINK_TO_ADD) project, focused on skills not yet demonstrated: Kafka, Spark, and potentially Kubernetes/LLM as an optional extension.
 
-**Current state: both batch and streaming pipelines (1-sensor and 3-sensor) validated locally. Full target AWS architecture, validated end to end** — ingestion (MSK Serverless), detection (EMR Serverless), persistent storage (S3), querying (Athena), and reporting (Power BI). Ephemeral infrastructure (MSK, bastion, EMR) is torn down at the end of each session; the data and its querying layer (S3, Glue Catalog, Athena) survive in a separate Terraform module. CI/CD is still to be done.
+**Current state: both batch and streaming pipelines (1-sensor and 3-sensor) validated locally. Full target AWS architecture, validated end to end** — ingestion (MSK Serverless), detection (EMR Serverless), persistent storage (S3), querying (Athena), and reporting (Power BI). Ephemeral infrastructure (MSK, bastion, EMR) is torn down at the end of each session; the data and its querying layer (S3, Glue Catalog, Athena) survive in a separate Terraform module. CI/CD is done too.
 
 ## Understanding this project in 2 minutes (no technical jargon)
 
@@ -37,17 +37,17 @@ This project simulates an electric motor manufacturing line for vehicles. Every 
 
 ![Detection results](docs/images/detection_results.png)
 
-**Streaming, 3 sensors, validated at scale** — 14/14 defective units detected, 0 false positives out of 36 healthy units. Details in [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md) *(in French)*.
+**Streaming, 3 sensors, validated at scale** — 14/14 defective units detected, 0 false positives out of 36 healthy units. Details in [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.en.md).
 
-**AWS, ingestion — MSK Serverless validated end to end** — default VPC reused, EC2 bastion with no SSH key (SSM access only), IAM scoped to the cluster. Full details, proof, and incidents in [ADR-005](docs/adr/0005-architecture-deploiement-aws.md) *(in French)*.
+**AWS, ingestion — MSK Serverless validated end to end** — default VPC reused, EC2 bastion with no SSH key (SSM access only), IAM scoped to the cluster. Full details, proof, and incidents in [ADR-005](docs/adr/0005-architecture-deploiement-aws.en.md).
 
-**AWS, detection — EMR Serverless validated end to end** — standalone Spark job, native IAM authentication to MSK Serverless (after abandoning Glue, currently incompatible at the Terraform provider level). 55 real units read from MSK and classified: **12/12 defective units detected, 0 false positives**. Full details, proofs, and incidents in [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.md) *(in French)* and [docs/proofs/](docs/proofs/).
+**AWS, detection — EMR Serverless validated end to end** — standalone Spark job, native IAM authentication to MSK Serverless (after abandoning Glue, currently incompatible at the Terraform provider level). 55 real units read from MSK and classified: **12/12 defective units detected, 0 false positives**. Full details, proofs, and incidents in [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.en.md) and [docs/proofs/](docs/proofs/).
 
-**AWS, storage — persistent S3 data lake, separate from ephemeral infrastructure** — dedicated Terraform module (`terraform/data`), destroyed independently from `terraform/main`: detection results (Parquet) survive MSK/bastion/EMR being torn down between sessions. Validated after fixing a permission incident (missing `s3:DeleteObject` for overwriting results): 35/35 units classified, 8/8 defects detected, 0 false positives, results confirmed present after tearing down the ephemeral infra. Full details in [ADR-007](docs/adr/0007-data-lake-module-persistant.md) *(in French)*.
+**AWS, storage — persistent S3 data lake, separate from ephemeral infrastructure** — dedicated Terraform module (`terraform/data`), destroyed independently from `terraform/main`: detection results (Parquet) survive MSK/bastion/EMR being torn down between sessions. Validated after fixing a permission incident (missing `s3:DeleteObject` for overwriting results): 35/35 units classified, 8/8 defects detected, 0 false positives, results confirmed present after tearing down the ephemeral infra. Full details in [ADR-007](docs/adr/0007-data-lake-module-persistant.en.md).
 
-**AWS, querying — Athena validated on persisted data** — Glue Data Catalog table with an explicit schema (no crawler, zero cost), dedicated Athena workgroup. Real queries from the console: aggregation confirming 35 units, 8 defective — an exact match with the EMR job's result. Negligible cost (a fraction of a cent for current usage). Details in [ADR-008](docs/adr/0008-athena-glue-catalog.md) *(in French)*.
+**AWS, querying — Athena validated on persisted data** — Glue Data Catalog table with an explicit schema (no crawler, zero cost), dedicated Athena workgroup. Real queries from the console: aggregation confirming 35 units, 8 defective — an exact match with the EMR job's result. Negligible cost (a fraction of a cent for current usage). Details in [ADR-008](docs/adr/0008-athena-glue-catalog.en.md).
 
-**AWS, reporting — Power BI, full chain validated visually** — native Athena connector, dashboard with KPI cards, breakdown by status, defective-unit detail table, and detection thresholds plotted on a scatter chart. Same figures as Athena and the EMR job (35 units, 8 defective). Details in [ADR-009](docs/adr/0009-powerbi-restitution.md) *(in French)*.
+**AWS, reporting — Power BI, full chain validated visually** — native Athena connector, dashboard with KPI cards, breakdown by status, defective-unit detail table, and detection thresholds plotted on a scatter chart. Same figures as Athena and the EMR job (35 units, 8 defective). Details in [ADR-009](docs/adr/0009-powerbi-restitution.en.md).
 
 ![Power BI dashboard](docs/images/powerbi-dashboard.png)
 
@@ -72,7 +72,7 @@ flowchart TD
     D --> E["Diagnosis<br/>healthy or defective unit"]
 ```
 
-Each sensor is processed by its own streaming query (session window), independently of the other two. Results are then consolidated per unit — with residual duplicates resolved — before the final diagnosis. Full details in [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md) *(in French)*.
+Each sensor is processed by its own streaming query (session window), independently of the other two. Results are then consolidated per unit — with residual duplicates resolved — before the final diagnosis. Full details in [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.en.md).
 
 **Why 3 sensors here, when the local pipeline uses 4 topics?** The 4 Kafka topics correspond to the 4 sensor types planned in the original brief — one topic per sensor, regardless of whether it's actually used downstream. Only 3 are used by detection: the two targeted defect scenarios don't require torque. The `sensor-torque` topic exists and receives simulated data, but isn't used in any classification logic yet.
 
@@ -85,7 +85,7 @@ flowchart LR
     C --> D["Diagnosis<br/>per unit"]
 ```
 
-The bastion (SSM access only, no SSH key) simulates and sends units to MSK Serverless. EMR Serverless reads this data with the same IAM authentication mechanism, runs detection, and writes its result to the job's logs. Glue was explored first, then abandoned — incompatible with MSK Serverless's IAM authentication at the current Terraform provider level. Full details and incidents in [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.md) *(in French)*.
+The bastion (SSM access only, no SSH key) simulates and sends units to MSK Serverless. EMR Serverless reads this data with the same IAM authentication mechanism, runs detection, and writes its result to the job's logs. Glue was explored first, then abandoned — incompatible with MSK Serverless's IAM authentication at the current Terraform provider level. Full details and incidents in [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.en.md).
 
 ## Target architecture (AWS, to be deployed)
 
@@ -121,7 +121,7 @@ flowchart LR
 | Item | Count |
 |---|---|
 | Phases completed | Phase 0 scoping + full local validation + complete AWS target architecture + CI/CD |
-| ADRs | 10 |
+| ADRs | 10 (all translated to English) |
 | Tests | 30 |
 
 ## Running locally
@@ -162,22 +162,22 @@ Once units have finalized (`Ctrl+C` on the first terminal):
 python detect_anomalies_from_streaming_files.py
 ```
 
-Full details on the approaches and incidents encountered: [ADR-002](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.md) *(in French)* (simulator, aliasing), [ADR-003](docs/adr/0003-detection-streaming-session-window-watermark.md) *(in French)* (1-sensor streaming), [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md) *(in French)* (3-sensor streaming), [ADR-005](docs/adr/0005-architecture-deploiement-aws.md) *(in French)* (MSK Serverless), [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.md) *(in French)* (EMR Serverless).
+Full details on the approaches and incidents encountered: [ADR-002](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.en.md) (simulator, aliasing), [ADR-003](docs/adr/0003-detection-streaming-session-window-watermark.en.md) (1-sensor streaming), [ADR-004](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.en.md) (3-sensor streaming), [ADR-005](docs/adr/0005-architecture-deploiement-aws.en.md) (MSK Serverless), [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.en.md) (EMR Serverless).
 
 ## Architecture decisions
 
-ADRs are written in French — this project's target job market. Happy to walk through any of them in English in an interview.
+Originally written in French, this project's target job market — every ADR is now also available in English.
 
-- [ADR-001 — Reusing the existing AWS account, isolation via tags](docs/adr/0001-utilisation-compte-aws-existant.md) *(in French)*
-- [ADR-002 — IoT sensor simulation for the end-of-line electrical test](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.md) *(in French)*
-- [ADR-003 — Streaming detection (session window, watermark, resilience)](docs/adr/0003-detection-streaming-session-window-watermark.md) *(in French)*
-- [ADR-004 — Decoupled architecture for 3-sensor streaming detection](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md) *(in French)*
-- [ADR-005 — AWS deployment architecture (backend, VPC, MSK Serverless, bastion)](docs/adr/0005-architecture-deploiement-aws.md) *(in French)*
-- [ADR-006 — Detection via EMR Serverless (Glue abandoned)](docs/adr/0006-emr-serverless-abandon-glue.md) *(in French)*
-- [ADR-007 — Separate Terraform module for the persistent data lake](docs/adr/0007-data-lake-module-persistant.md) *(in French)*
-- [ADR-008 — Athena querying on the persistent data lake](docs/adr/0008-athena-glue-catalog.md) *(in French)*
-- [ADR-009 — Reporting via Power BI](docs/adr/0009-powerbi-restitution.md) *(in French)*
-- [ADR-010 — Continuous integration via GitHub Actions](docs/adr/0010-cicd-github-actions.md) *(in French)*
+- [ADR-001 — Reusing the existing AWS account, isolation via tags](docs/adr/0001-utilisation-compte-aws-existant.en.md) ([🇫🇷](docs/adr/0001-utilisation-compte-aws-existant.md))
+- [ADR-002 — IoT sensor simulation for the end-of-line electrical test](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.en.md) ([🇫🇷](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.md))
+- [ADR-003 — Streaming detection (session window, watermark, resilience)](docs/adr/0003-detection-streaming-session-window-watermark.en.md) ([🇫🇷](docs/adr/0003-detection-streaming-session-window-watermark.md))
+- [ADR-004 — Decoupled architecture for 3-sensor streaming detection](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.en.md) ([🇫🇷](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md))
+- [ADR-005 — AWS deployment architecture (backend, VPC, MSK Serverless, bastion)](docs/adr/0005-architecture-deploiement-aws.en.md) ([🇫🇷](docs/adr/0005-architecture-deploiement-aws.md))
+- [ADR-006 — Detection via EMR Serverless (Glue abandoned)](docs/adr/0006-emr-serverless-abandon-glue.en.md) ([🇫🇷](docs/adr/0006-emr-serverless-abandon-glue.md))
+- [ADR-007 — Separate Terraform module for the persistent data lake](docs/adr/0007-data-lake-module-persistant.en.md) ([🇫🇷](docs/adr/0007-data-lake-module-persistant.md))
+- [ADR-008 — Athena querying on the persistent data lake](docs/adr/0008-athena-glue-catalog.en.md) ([🇫🇷](docs/adr/0008-athena-glue-catalog.md))
+- [ADR-009 — Reporting via Power BI](docs/adr/0009-powerbi-restitution.en.md) ([🇫🇷](docs/adr/0009-powerbi-restitution.md))
+- [ADR-010 — Continuous integration via GitHub Actions](docs/adr/0010-cicd-github-actions.en.md) ([🇫🇷](docs/adr/0010-cicd-github-actions.md))
 
 ## Next steps
 
