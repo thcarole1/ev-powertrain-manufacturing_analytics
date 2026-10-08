@@ -6,9 +6,9 @@
 
 Pipeline de données temps réel simulant une ligne de production de moteurs électriques synchrones à aimants permanents (PMSM), de l'ingestion de capteurs IoT (température, vibration, courant, couple) jusqu'à la détection d'anomalies et la restitution métier.
 
-Second projet de portfolio, complémentaire au projet [Electric Mobility Platform](https://github.com/thcarole1/electric-mobility-platform), axé sur des compétences non démontrées jusqu'ici : Kafka, Spark.
+Second projet de portfolio, complémentaire au projet [Electric Mobility Platform](LIEN_A_COMPLETER), axé sur des compétences non démontrées jusqu'ici : Kafka, Spark, et potentiellement Kubernetes/LLM en option.
 
-**État actuel : pipeline batch et streaming (1 capteur et 3 capteurs) validés en local. Architecture cible AWS complète, validée bout en bout** — ingestion (MSK Serverless), détection (EMR Serverless), stockage persistant (S3), requêtage (Athena), restitution (Power BI), et CI/CD (GitHub Actions). L'infrastructure éphémère (MSK, bastion, EMR) est détruite en fin de session ; les données et leur requêtage (S3, Glue Catalog, Athena) survivent dans un module Terraform séparé.
+**État actuel : pipeline batch et streaming (1 capteur et 3 capteurs) validés en local. Architecture cible AWS complète, validée bout en bout** — ingestion (MSK Serverless), détection (EMR Serverless), stockage persistant (S3), requêtage (Athena) et restitution (Power BI). L'infrastructure éphémère (MSK, bastion, EMR) est détruite en fin de session ; les données et leur requêtage (S3, Glue Catalog, Athena) survivent dans un module Terraform séparé. Le CI/CD est également en place.
 
 ## Comprendre ce projet en 2 minutes (sans jargon technique)
 
@@ -27,7 +27,7 @@ Ce projet simule une chaîne de fabrication de moteurs électriques pour véhicu
 
 **Qui prend cette décision, et quand :** pas un humain, et pas pendant que le test se déroule — c'est **Apache Spark**, le moteur de traitement de données au cœur de ce projet, qui analyse les mesures et rend son verdict quelques secondes après la fin du test.
 
-**Résultat obtenu** : sur 50 moteurs simulés testés, les 14 réellement défectueux ont tous été détectés, sans qu'aucun moteur sain ne soit signalé à tort.
+**Résultat obtenu** : lors de la validation locale en streaming sur 3 capteurs, sur 50 moteurs simulés testés, les 14 réellement défectueux ont tous été détectés, sans qu'aucun moteur sain ne soit signalé à tort. Les autres exécutions de validation (batch local, AWS) portent sur d'autres jeux de moteurs simulés, donc sur d'autres totaux : voir le tableau « Exécutions de validation » plus bas.
 
 *Note honnête : les seuils actuels ont été calibrés sur les paramètres connus du simulateur. Avant un déploiement réel en production, ils devraient être recalibrés sur des données de test réelles.*
 
@@ -50,6 +50,19 @@ Ce projet simule une chaîne de fabrication de moteurs électriques pour véhicu
 **AWS, restitution — Power BI, chaîne complète validée visuellement** — connecteur natif Athena, tableau de bord avec cartes KPI, répartition par statut, détail des unités défectueuses et seuils de détection affichés sur un nuage de points. Mêmes chiffres qu'Athena et le job EMR (35 unités, 8 défectueuses). Détail dans [ADR-009](docs/adr/0009-powerbi-restitution.md).
 
 ![Tableau de bord Power BI](docs/images/powerbi-dashboard.png)
+
+### Exécutions de validation
+
+| Exécution | Environnement | Unités simulées | Dont défectueuses | Résultat |
+|---|---|---|---|---|
+| Batch | Local | 50 | 9 | 9/9 détectées, 0 faux positif (précision et rappel de 1.00) |
+| Streaming, 3 capteurs | Local | 50 | 14 | 14/14 détectées, 0 faux positif sur 36 unités saines |
+| EMR Serverless | AWS | 55 * | 12 | 12/12 détectées, 0 faux positif |
+| Athena / Power BI | AWS | 35 * | 8 | 8/8 détectées, 0 faux positif |
+
+\* Totaux cumulés : le job relit tout le contenu de Kafka, y compris les envois précédents.
+
+Chaque exécution tire au hasard de nouvelles unités simulées : le nombre d'unités et de défectueuses diffère donc d'une exécution à l'autre. Ces totaux ne se contredisent pas, ils décrivent des jeux de données distincts ; dans chaque cas, toutes les unités défectueuses ont été détectées sans faux positif.
 
 ## Pipeline validé (local)
 
@@ -87,7 +100,7 @@ flowchart LR
 
 Le bastion (accès SSM uniquement, aucune clé SSH) simule et envoie les unités vers MSK Serverless. EMR Serverless lit ces données avec le même mécanisme d'authentification IAM, exécute la détection, puis écrit son résultat dans les journaux du job. Glue a été exploré en premier puis abandonné — incompatible avec l'authentification IAM de MSK Serverless au niveau du fournisseur Terraform actuel. Détail complet et incidents dans [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.md).
 
-## Architecture complète (AWS, validée)
+## Architecture cible (AWS, à déployer)
 
 ```mermaid
 flowchart LR
@@ -98,8 +111,6 @@ flowchart LR
     E --> F["Athena"]
     F --> G["Power BI"]
 ```
-
-Seul schéma montrant la chaîne complète de bout en bout — chaque brique est individuellement détaillée, avec sa preuve de fonctionnement, dans les sections et ADR ci-dessus.
 
 ## Stack technique
 
@@ -123,7 +134,7 @@ Seul schéma montrant la chaîne complète de bout en bout — chaque brique est
 | Élément | Nombre |
 |---|---|
 | Phases terminées | Cadrage Phase 0 + validation locale complète + architecture AWS cible complète + CI/CD |
-| ADR | 10 |
+| ADR | 10 (tous traduits en anglais) |
 | Tests | 30 |
 
 ## Utilisation locale
@@ -168,16 +179,18 @@ Détail complet des approches et incidents rencontrés dans [ADR-002](docs/adr/0
 
 ## Décisions d'architecture
 
-- [ADR-001 — Utilisation du compte AWS existant, séparation par tags](docs/adr/0001-utilisation-compte-aws-existant.md)
-- [ADR-002 — Simulation des capteurs IoT pour le test électrique final](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.md)
-- [ADR-003 — Détection en streaming (session window, watermark, résilience)](docs/adr/0003-detection-streaming-session-window-watermark.md)
-- [ADR-004 — Architecture découplée pour la détection streaming à 3 capteurs](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md)
-- [ADR-005 — Architecture de déploiement AWS (backend, VPC, MSK Serverless, bastion)](docs/adr/0005-architecture-deploiement-aws.md)
-- [ADR-006 — Détection via EMR Serverless (abandon de Glue)](docs/adr/0006-emr-serverless-abandon-glue.md)
-- [ADR-007 — Module Terraform séparé pour le data lake persistant](docs/adr/0007-data-lake-module-persistant.md)
-- [ADR-008 — Requêtage Athena sur le data lake persistant](docs/adr/0008-athena-glue-catalog.md)
-- [ADR-009 — Restitution via Power BI](docs/adr/0009-powerbi-restitution.md)
-- [ADR-010 — Intégration continue via GitHub Actions](docs/adr/0010-cicd-github-actions.md)
+Rédigés à l'origine en français, marché cible de ce projet, tous les ADR sont désormais aussi disponibles en anglais.
+
+- [ADR-001 — Utilisation du compte AWS existant, séparation par tags](docs/adr/0001-utilisation-compte-aws-existant.md) ([🇬🇧](docs/adr/0001-utilisation-compte-aws-existant.en.md))
+- [ADR-002 — Simulation des capteurs IoT pour le test électrique final](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.md) ([🇬🇧](docs/adr/0002-simulation-capteurs-iot-test-electrique-final.en.md))
+- [ADR-003 — Détection en streaming (session window, watermark, résilience)](docs/adr/0003-detection-streaming-session-window-watermark.md) ([🇬🇧](docs/adr/0003-detection-streaming-session-window-watermark.en.md))
+- [ADR-004 — Architecture découplée pour la détection streaming à 3 capteurs](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.md) ([🇬🇧](docs/adr/0004-architecture-decouplee-streaming-3-capteurs.en.md))
+- [ADR-005 — Architecture de déploiement AWS (backend, VPC, MSK Serverless, bastion)](docs/adr/0005-architecture-deploiement-aws.md) ([🇬🇧](docs/adr/0005-architecture-deploiement-aws.en.md))
+- [ADR-006 — Détection via EMR Serverless (abandon de Glue)](docs/adr/0006-emr-serverless-abandon-glue.md) ([🇬🇧](docs/adr/0006-emr-serverless-abandon-glue.en.md))
+- [ADR-007 — Module Terraform séparé pour le data lake persistant](docs/adr/0007-data-lake-module-persistant.md) ([🇬🇧](docs/adr/0007-data-lake-module-persistant.en.md))
+- [ADR-008 — Requêtage Athena sur le data lake persistant](docs/adr/0008-athena-glue-catalog.md) ([🇬🇧](docs/adr/0008-athena-glue-catalog.en.md))
+- [ADR-009 — Restitution via Power BI](docs/adr/0009-powerbi-restitution.md) ([🇬🇧](docs/adr/0009-powerbi-restitution.en.md))
+- [ADR-010 — Intégration continue via GitHub Actions](docs/adr/0010-cicd-github-actions.md) ([🇬🇧](docs/adr/0010-cicd-github-actions.en.md))
 
 ## Prochaines étapes
 

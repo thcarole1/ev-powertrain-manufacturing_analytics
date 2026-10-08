@@ -6,9 +6,9 @@
 
 Real-time data pipeline simulating a manufacturing line for permanent magnet synchronous motors (PMSM) used in electric vehicles — from IoT sensor ingestion (temperature, vibration, current, torque) to anomaly detection and business reporting.
 
-Second portfolio project, complementary to the [Electric Mobility Platform](https://github.com/thcarole1/electric-mobility-platform) project, focused on skills not yet demonstrated: Kafka, Spark.
+Second portfolio project, complementary to the [Electric Mobility Platform](LINK_TO_ADD) project, focused on skills not yet demonstrated: Kafka, Spark, and potentially Kubernetes/LLM as an optional extension.
 
-**Current state: both batch and streaming pipelines (1-sensor and 3-sensor) validated locally. Full target AWS architecture, validated end to end** — ingestion (MSK Serverless), detection (EMR Serverless), persistent storage (S3), querying (Athena), reporting (Power BI), and CI/CD (GitHub Actions). Ephemeral infrastructure (MSK, bastion, EMR) is torn down at the end of each session; the data and its querying layer (S3, Glue Catalog, Athena) survive in a separate Terraform module.
+**Current state: both batch and streaming pipelines (1-sensor and 3-sensor) validated locally. Full target AWS architecture, validated end to end** — ingestion (MSK Serverless), detection (EMR Serverless), persistent storage (S3), querying (Athena), and reporting (Power BI). Ephemeral infrastructure (MSK, bastion, EMR) is torn down at the end of each session; the data and its querying layer (S3, Glue Catalog, Athena) survive in a separate Terraform module. CI/CD is done too.
 
 ## Understanding this project in 2 minutes (no technical jargon)
 
@@ -27,7 +27,7 @@ This project simulates an electric motor manufacturing line for vehicles. Every 
 
 **Who makes this decision, and when:** not a human, and not while the test is running — it's **Apache Spark**, the data processing engine at the core of this project, that analyzes the measurements and delivers its verdict a few seconds after the test ends.
 
-**Result achieved**: out of 50 simulated motors tested, all 14 genuinely defective units were detected, with zero healthy motors incorrectly flagged.
+**Result achieved**: in the local 3-sensor streaming validation, out of 50 simulated motors tested, all 14 genuinely defective units were detected, with zero healthy motors incorrectly flagged. The other validation runs (local batch, AWS) use different sets of simulated motors, hence different totals: see the "Validation runs" table below.
 
 *Honest note: current thresholds were calibrated against the simulator's known parameters. Before a real production deployment, they would need to be recalibrated on real test data.*
 
@@ -50,6 +50,19 @@ This project simulates an electric motor manufacturing line for vehicles. Every 
 **AWS, reporting — Power BI, full chain validated visually** — native Athena connector, dashboard with KPI cards, breakdown by status, defective-unit detail table, and detection thresholds plotted on a scatter chart. Same figures as Athena and the EMR job (35 units, 8 defective). Details in [ADR-009](docs/adr/0009-powerbi-restitution.en.md).
 
 ![Power BI dashboard](docs/images/powerbi-dashboard.png)
+
+### Validation runs
+
+| Run | Environment | Simulated units | Of which defective | Result |
+|---|---|---|---|---|
+| Batch | Local | 50 | 9 | 9/9 detected, 0 false positives (precision and recall of 1.00) |
+| Streaming, 3 sensors | Local | 50 | 14 | 14/14 detected, 0 false positives out of 36 healthy units |
+| EMR Serverless | AWS | 55 * | 12 | 12/12 detected, 0 false positives |
+| Athena / Power BI | AWS | 35 * | 8 | 8/8 detected, 0 false positives |
+
+\* Cumulated totals: the job re-reads the full contents of Kafka, including earlier sends.
+
+Each run randomly draws new simulated units, so the number of units and defective ones differs from one run to the next. These totals do not contradict each other: they describe distinct datasets, and in every case all defective units were detected with no false positives.
 
 ## Validated pipeline (local)
 
@@ -87,7 +100,7 @@ flowchart LR
 
 The bastion (SSM access only, no SSH key) simulates and sends units to MSK Serverless. EMR Serverless reads this data with the same IAM authentication mechanism, runs detection, and writes its result to the job's logs. Glue was explored first, then abandoned — incompatible with MSK Serverless's IAM authentication at the current Terraform provider level. Full details and incidents in [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.en.md).
 
-## Full architecture (AWS, validated)
+## Target architecture (AWS, to be deployed)
 
 ```mermaid
 flowchart LR
@@ -98,8 +111,6 @@ flowchart LR
     E --> F["Athena"]
     F --> G["Power BI"]
 ```
-
-The only diagram showing the full end-to-end chain — each piece is individually detailed, with its proof of functioning, in the sections and ADRs above.
 
 ## Tech stack
 
