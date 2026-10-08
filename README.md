@@ -6,7 +6,7 @@
 
 Pipeline de données temps réel simulant une ligne de production de moteurs électriques synchrones à aimants permanents (PMSM), de l'ingestion de capteurs IoT (température, vibration, courant, couple) jusqu'à la détection d'anomalies et la restitution métier.
 
-Second projet de portfolio, complémentaire au projet [Electric Mobility Platform](LIEN_A_COMPLETER), axé sur des compétences non démontrées jusqu'ici : Kafka, Spark, et potentiellement Kubernetes/LLM en option.
+Second projet de portfolio, complémentaire au projet [Electric Mobility Platform](https://github.com/thcarole1/electric-mobility-platform), axé sur des compétences non démontrées jusqu'ici : Kafka, Spark, et potentiellement Kubernetes/LLM en option.
 
 **État actuel : pipeline batch et streaming (1 capteur et 3 capteurs) validés en local. Architecture cible AWS complète, validée bout en bout** — ingestion (MSK Serverless), détection (EMR Serverless), stockage persistant (S3), requêtage (Athena) et restitution (Power BI). L'infrastructure éphémère (MSK, bastion, EMR) est détruite en fin de session ; les données et leur requêtage (S3, Glue Catalog, Athena) survivent dans un module Terraform séparé. Le CI/CD est également en place.
 
@@ -20,12 +20,12 @@ Ce projet simule une chaîne de fabrication de moteurs électriques pour véhicu
 |---|---|
 | Vibration | Un moteur qui vibre anormalement trahit souvent un roulement mal monté à l'assemblage |
 | Courant électrique | Un déséquilibre entre les trois phases électriques trahit souvent une connexion mal serrée |
-| Température | Mesurée pendant le test, mais pas encore utilisée dans la décision finale (les deux défauts recherchés se voient déjà sur les deux mesures ci-dessus) |
+| Température | Une montée en température anormalement rapide confirme souvent un roulement mal monté, le même défaut que la vibration vu sous un autre angle |
 | Couple moteur | Mesuré, mais pas encore exploité dans la détection actuelle |
 
 **Comment la décision "bon" ou "défectueux" est prise :** chaque mesure est comparée à un seuil au-delà duquel elle est jugée anormale. Si au moins une mesure dépasse son seuil, le moteur est marqué défectueux ; sinon, il est validé.
 
-**Qui prend cette décision, et quand :** pas un humain, et pas pendant que le test se déroule — c'est **Apache Spark**, le moteur de traitement de données au cœur de ce projet, qui analyse les mesures et rend son verdict quelques secondes après la fin du test.
+**Qui prend cette décision, et quand :** pas un humain, et pas pendant que le test se déroule — c'est **Apache Spark**, le moteur de traitement de données au cœur de ce projet, qui analyse les mesures et rend son verdict peu après la fin du test (en streaming local, après une courte fenêtre d'inactivité), ou à la demande en batch sur AWS.
 
 **Résultat obtenu** : lors de la validation locale en streaming sur 3 capteurs, sur 50 moteurs simulés testés, les 14 réellement défectueux ont tous été détectés, sans qu'aucun moteur sain ne soit signalé à tort. Les autres exécutions de validation (batch local, AWS) portent sur d'autres jeux de moteurs simulés, donc sur d'autres totaux : voir le tableau « Exécutions de validation » plus bas.
 
@@ -41,7 +41,7 @@ Ce projet simule une chaîne de fabrication de moteurs électriques pour véhicu
 
 **AWS, ingestion — MSK Serverless validé bout en bout** — VPC par défaut réutilisé, bastion EC2 sans clé SSH (accès SSM uniquement), IAM scopé au cluster. Détail complet, preuve et incidents dans [ADR-005](docs/adr/0005-architecture-deploiement-aws.md).
 
-**AWS, détection — EMR Serverless validé bout en bout** — job Spark autonome, authentification IAM native vers MSK Serverless (après abandon de Glue, incompatible avec Terraform à ce jour). 55 unités réelles lues depuis MSK et classifiées : **12/12 défectueuses détectées, 0 faux positif**. Détail complet, preuves et incidents dans [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.md) et [docs/proofs/](docs/proofs/).
+**AWS, détection — EMR Serverless validé bout en bout** — job Spark autonome, authentification IAM native vers MSK Serverless (après abandon de Glue, incompatible avec Terraform à ce jour). 55 unités simulées, lues depuis le cluster MSK réel et classifiées : **12/12 défectueuses détectées, 0 faux positif**. Détail complet, preuves et incidents dans [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.md) et [docs/proofs/](docs/proofs/).
 
 **AWS, stockage — data lake S3 persistant, séparé de l'infra éphémère** — module Terraform dédié (`terraform/data`), détruit indépendamment de `terraform/main` : les résultats de détection (Parquet) survivent à la destruction de MSK/bastion/EMR entre les sessions. Validé après correction d'un incident de permission (`s3:DeleteObject` manquant pour l'écrasement des résultats) : 35/35 unités classifiées, 8/8 défectueuses détectées, 0 faux positif, résultats confirmés présents après destruction de l'infra éphémère. Détail complet dans [ADR-007](docs/adr/0007-data-lake-module-persistant.md).
 
@@ -98,13 +98,13 @@ flowchart LR
     C --> D["Diagnostic<br/>par unité"]
 ```
 
-Le bastion (accès SSM uniquement, aucune clé SSH) simule et envoie les unités vers MSK Serverless. EMR Serverless lit ces données avec le même mécanisme d'authentification IAM, exécute la détection, puis écrit son résultat dans les journaux du job. Glue a été exploré en premier puis abandonné — incompatible avec l'authentification IAM de MSK Serverless au niveau du fournisseur Terraform actuel. Détail complet et incidents dans [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.md).
+Le bastion (accès SSM uniquement, aucune clé SSH) simule et envoie les unités vers MSK Serverless. EMR Serverless lit ces données avec le même mécanisme d'authentification IAM, exécute la détection, affiche le résultat dans les journaux du job et l'écrit en Parquet sur S3 (data lake persistant, voir [ADR-007](docs/adr/0007-data-lake-module-persistant.md)). Sur AWS, la détection tourne en batch, à la demande ; le streaming continu est démontré en local. Glue a été exploré en premier puis abandonné — incompatible avec l'authentification IAM de MSK Serverless au niveau du fournisseur Terraform actuel. Détail complet et incidents dans [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.md).
 
-## Architecture cible (AWS, à déployer)
+## Architecture AWS complète (validée)
 
 ```mermaid
 flowchart LR
-    A["Simulateur Python"] --> B["Amazon MSK"]
+    A["Simulateur Python"] --> B["Amazon MSK Serverless"]
     B --> C["EMR Serverless"]
     C --> D["S3 - Data Lake"]
     D --> E["Glue Catalog"]
@@ -194,4 +194,4 @@ Rédigés à l'origine en français, marché cible de ce projet, tous les ADR so
 
 ## Prochaines étapes
 
-- Pitch oral, relecture finale du portfolio (partie technique de la roadmap complète)
+- Pitch oral, relecture finale du portfolio (la roadmap technique est désormais terminée)
