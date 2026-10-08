@@ -6,7 +6,7 @@
 
 Real-time data pipeline simulating a manufacturing line for permanent magnet synchronous motors (PMSM) used in electric vehicles — from IoT sensor ingestion (temperature, vibration, current, torque) to anomaly detection and business reporting.
 
-Second portfolio project, complementary to the [Electric Mobility Platform](LINK_TO_ADD) project, focused on skills not yet demonstrated: Kafka, Spark, and potentially Kubernetes/LLM as an optional extension.
+Second portfolio project, complementary to the [Electric Mobility Platform](https://github.com/thcarole1/electric-mobility-platform) project, focused on skills not yet demonstrated: Kafka, Spark, and potentially Kubernetes/LLM as an optional extension.
 
 **Current state: both batch and streaming pipelines (1-sensor and 3-sensor) validated locally. Full target AWS architecture, validated end to end** — ingestion (MSK Serverless), detection (EMR Serverless), persistent storage (S3), querying (Athena), and reporting (Power BI). Ephemeral infrastructure (MSK, bastion, EMR) is torn down at the end of each session; the data and its querying layer (S3, Glue Catalog, Athena) survive in a separate Terraform module. CI/CD is done too.
 
@@ -20,12 +20,12 @@ This project simulates an electric motor manufacturing line for vehicles. Every 
 |---|---|
 | Vibration | A motor vibrating abnormally often points to a poorly mounted bearing |
 | Electrical current | An imbalance between the three electrical phases often points to a loose connection |
-| Temperature | Measured during the test, but not yet used in the final decision (the two targeted defects already show up clearly on the two measurements above) |
+| Temperature | An abnormally fast temperature rise often confirms a poorly mounted bearing, the same defect as vibration seen from another angle |
 | Motor torque | Measured, but not yet used in the current detection logic |
 
 **How the "good" or "defective" decision is made:** each measurement is compared against a threshold beyond which it's considered abnormal. If at least one measurement crosses its threshold, the motor is flagged as defective; otherwise, it's approved.
 
-**Who makes this decision, and when:** not a human, and not while the test is running — it's **Apache Spark**, the data processing engine at the core of this project, that analyzes the measurements and delivers its verdict a few seconds after the test ends.
+**Who makes this decision, and when:** not a human, and not while the test is running — it's **Apache Spark**, the data processing engine at the core of this project, that analyzes the measurements and delivers its verdict shortly after the test ends (in local streaming, after a short inactivity window), or on demand as a batch job on AWS.
 
 **Result achieved**: in the local 3-sensor streaming validation, out of 50 simulated motors tested, all 14 genuinely defective units were detected, with zero healthy motors incorrectly flagged. The other validation runs (local batch, AWS) use different sets of simulated motors, hence different totals: see the "Validation runs" table below.
 
@@ -41,11 +41,11 @@ This project simulates an electric motor manufacturing line for vehicles. Every 
 
 **AWS, ingestion — MSK Serverless validated end to end** — default VPC reused, EC2 bastion with no SSH key (SSM access only), IAM scoped to the cluster. Full details, proof, and incidents in [ADR-005](docs/adr/0005-architecture-deploiement-aws.en.md).
 
-**AWS, detection — EMR Serverless validated end to end** — standalone Spark job, native IAM authentication to MSK Serverless (after abandoning Glue, currently incompatible at the Terraform provider level). 55 real units read from MSK and classified: **12/12 defective units detected, 0 false positives**. Full details, proofs, and incidents in [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.en.md) and [docs/proofs/](docs/proofs/).
+**AWS, detection — EMR Serverless validated end to end** — standalone Spark job, native IAM authentication to MSK Serverless (after abandoning Glue, currently incompatible at the Terraform provider level). 55 simulated units, read from the real MSK cluster and classified: **12/12 defective units detected, 0 false positives**. Full details, proofs, and incidents in [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.en.md) and [docs/proofs/](docs/proofs/).
 
 **AWS, storage — persistent S3 data lake, separate from ephemeral infrastructure** — dedicated Terraform module (`terraform/data`), destroyed independently from `terraform/main`: detection results (Parquet) survive MSK/bastion/EMR being torn down between sessions. Validated after fixing a permission incident (missing `s3:DeleteObject` for overwriting results): 35/35 units classified, 8/8 defects detected, 0 false positives, results confirmed present after tearing down the ephemeral infra. Full details in [ADR-007](docs/adr/0007-data-lake-module-persistant.en.md).
 
-**AWS, querying — Athena validated on persisted data** — Glue Data Catalog table with an explicit schema (no crawler, zero cost), dedicated Athena workgroup. Real queries from the console: aggregation confirming 35 units, 8 defective — an exact match with the EMR job's result. Negligible cost (a fraction of a cent for current usage). Details in [ADR-008](docs/adr/0008-athena-glue-catalog.en.md).
+**AWS, querying — Athena validated on persisted data** — Glue Data Catalog table with an explicit schema (no crawler, zero cost), dedicated Athena workgroup. Real queries from the console: aggregation confirming 35 units, 8 defective — an exact match with the EMR job's result. Negligible cost (about a thousandth of a cent for current usage). Details in [ADR-008](docs/adr/0008-athena-glue-catalog.en.md).
 
 **AWS, reporting — Power BI, full chain validated visually** — native Athena connector, dashboard with KPI cards, breakdown by status, defective-unit detail table, and detection thresholds plotted on a scatter chart. Same figures as Athena and the EMR job (35 units, 8 defective). Details in [ADR-009](docs/adr/0009-powerbi-restitution.en.md).
 
@@ -98,13 +98,13 @@ flowchart LR
     C --> D["Diagnosis<br/>per unit"]
 ```
 
-The bastion (SSM access only, no SSH key) simulates and sends units to MSK Serverless. EMR Serverless reads this data with the same IAM authentication mechanism, runs detection, and writes its result to the job's logs. Glue was explored first, then abandoned — incompatible with MSK Serverless's IAM authentication at the current Terraform provider level. Full details and incidents in [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.en.md).
+The bastion (SSM access only, no SSH key) simulates and sends units to MSK Serverless. EMR Serverless reads this data with the same IAM authentication mechanism, runs detection, prints the result in the job's logs and writes it as Parquet to S3 (persistent data lake, see [ADR-007](docs/adr/0007-data-lake-module-persistant.en.md)). On AWS, detection runs as an on-demand batch job; continuous streaming is demonstrated locally. Glue was explored first, then abandoned — incompatible with MSK Serverless's IAM authentication at the current Terraform provider level. Full details and incidents in [ADR-006](docs/adr/0006-emr-serverless-abandon-glue.en.md).
 
-## Target architecture (AWS, to be deployed)
+## Complete AWS architecture (validated)
 
 ```mermaid
 flowchart LR
-    A["Python simulator"] --> B["Amazon MSK"]
+    A["Python simulator"] --> B["Amazon MSK Serverless"]
     B --> C["EMR Serverless"]
     C --> D["S3 - Data Lake"]
     D --> E["Glue Catalog"]
